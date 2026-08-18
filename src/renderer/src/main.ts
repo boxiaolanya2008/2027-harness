@@ -13,6 +13,18 @@ import checkCircle from '@iconify-icons/mdi/check-circle'
 import alertCircle from '@iconify-icons/mdi/alert-circle'
 import dotsHorizontal from '@iconify-icons/mdi/dots-horizontal'
 import loading from '@iconify-icons/mdi/loading'
+import arrowLeft from '@iconify-icons/mdi/arrow-left'
+import github from '@iconify-icons/mdi/github'
+import magnify from '@iconify-icons/mdi/magnify'
+import folderPlusOutline from '@iconify-icons/mdi/folder-plus-outline'
+import folderOpenOutline from '@iconify-icons/mdi/folder-open-outline'
+import messageTextOutline from '@iconify-icons/mdi/message-text-outline'
+import deleteOutline from '@iconify-icons/mdi/delete-outline'
+import chevronRight from '@iconify-icons/mdi/chevron-right'
+import alertCircleOutline from '@iconify-icons/mdi/alert-circle-outline'
+import headSnowflakeOutline from '@iconify-icons/mdi/head-snowflake-outline'
+import tools from '@iconify-icons/mdi/tools'
+import pageLayoutSidebarRight from '@iconify-icons/mdi/page-layout-sidebar-right'
 import App from './App.vue'
 import router from './router'
 import './styles/main.css'
@@ -28,6 +40,18 @@ addIcon('mdi:check-circle', checkCircle)
 addIcon('mdi:alert-circle', alertCircle)
 addIcon('mdi:dots-horizontal', dotsHorizontal)
 addIcon('mdi:loading', loading)
+addIcon('mdi:arrow-left', arrowLeft)
+addIcon('mdi:github', github)
+addIcon('mdi:magnify', magnify)
+addIcon('mdi:folder-plus-outline', folderPlusOutline)
+addIcon('mdi:folder-open-outline', folderOpenOutline)
+addIcon('mdi:message-text-outline', messageTextOutline)
+addIcon('mdi:delete-outline', deleteOutline)
+addIcon('mdi:chevron-right', chevronRight)
+addIcon('mdi:alert-circle-outline', alertCircleOutline)
+addIcon('mdi:head-snowflake-outline', headSnowflakeOutline)
+addIcon('mdi:tools', tools)
+addIcon('mdi:page-layout-sidebar-right', pageLayoutSidebarRight)
 
 const app = createApp(App)
 app.use(createPinia())

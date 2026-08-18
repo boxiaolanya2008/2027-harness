@@ -17,14 +17,16 @@ defineProps<{
   border-radius: var(--radius-md);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
+}
+.glass-card--interactive {
   transition:
     transform 0.22s ease,
     box-shadow 0.22s ease,
     border-color 0.22s ease;
 }
 .glass-card--interactive:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-  border-color: rgba(255, 255, 255, 0.22);
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--glass-border));
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--text-primary) 12%, transparent);
 }
 </style>

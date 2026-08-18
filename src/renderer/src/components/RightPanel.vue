@@ -1,58 +1,40 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import dayjs from 'dayjs'
-import GlassCard from '@/components/GlassCard.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
 import TimelineView from '@/components/TimelineView.vue'
 import { useChatStore } from '@/stores/chat'
 import { useGithubStore } from '@/stores/github'
-import { useIndexerStore } from '@/stores/indexer'
 import { useSettingsStore } from '@/stores/settings'
 import { chatOnce } from '@/api/openai'
-import type { SearchHit } from '@/types'
 
 const chat = useChatStore()
 const github = useGithubStore()
-const indexer = useIndexerStore()
 const settings = useSettingsStore()
-
-const tab = ref<'pr' | 'issue' | 'commit'>('pr')
-const ragQuery = ref('')
+const tab = computed({
+  get: () => chat.rightPanelTab as 'pr' | 'issue' | 'commit',
+  set: (value: 'pr' | 'issue' | 'commit') => {
+    chat.rightPanelTab = value
+    void chat.persistUiState()
+  }
+})
 const prBusy = ref(false)
 
 onMounted(async () => {
-  if (settings.hasGithubToken) {
-    await github.loadIdentity()
-    await github.loadRepos()
-  }
+  if (!settings.hasGithubToken) return
+  await github.loadIdentity()
+  await github.loadRepos()
+  const saved = github.repos.find((repo) => repo.full_name === chat.selectedRepoFullName)
+  if (saved) await github.selectRepo(saved)
 })
 
-async function pickWorkspace() {
-  const dir = await window.api.dialog.pickDir()
-  if (dir) {
-    chat.workspace = dir
-    await indexer.check(dir)
-  }
-}
-
-async function buildIndex() {
-  if (!chat.workspace) return
-  await indexer.build(chat.workspace)
-  ElMessage.success(`索引完成：${indexer.fileCount} 个文件`)
-}
-
-async function doRagSearch() {
-  if (!chat.workspace || !ragQuery.value.trim()) return
-  await indexer.search(chat.workspace, ragQuery.value.trim())
-}
-
-async function askCodebase(hit: SearchHit) {
-  chat.sendPrompt(
-    `（来自代码库检索）文件 ${hit.file} 命中：\n\`\`\`\n${hit.snippet.slice(0, 1200)}\n\`\`\`\n请结合这段代码回答我的问题。`
-  )
+async function selectRepo(repo: any) {
+  await github.selectRepo(repo)
+  chat.selectedRepoFullName = repo?.full_name || null
+  await chat.persistUiState()
 }
 
 function summarize(kind: string, item: any) {
@@ -63,7 +45,7 @@ function summarize(kind: string, item: any) {
 async function oneClickPr() {
   const ws = chat.workspace
   if (!ws) {
-    ElMessage.warning('先选择工作区')
+    ElMessage.warning('先在左侧选择工作区')
     return
   }
   prBusy.value = true
@@ -84,10 +66,10 @@ async function oneClickPr() {
     await window.api.git.push(ws, branch)
 
     const remote = await window.api.git.remote(ws)
-    const m = remote.match(/github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?$/)
-    if (!m) throw new Error('无法从 remote 解析 GitHub 仓库')
-    const owner = m[1]
-    const repo = m[2]
+    const match = remote.match(/github\.com[:/]([^/]+)\/([^/]+?)(?:\.git)?$/)
+    if (!match) throw new Error('无法从 remote 解析 GitHub 仓库')
+    const owner = match[1]
+    const repo = match[2]
     const pr = await window.api.gh.post(`/repos/${owner}/${repo}/pulls`, {
       title: parsed.title || 'Super-Agent PR',
       head: branch,
@@ -95,7 +77,6 @@ async function oneClickPr() {
       body: parsed.body || ''
     })
     ElMessage.success(`PR 已创建：${pr.html_url}`)
-    await github.selectRepo({ ...github.currentRepo!, full_name: `${owner}/${repo}` })
   } catch (e: any) {
     ElMessage.error(e.message)
   } finally {
@@ -105,186 +86,98 @@ async function oneClickPr() {
 </script>
 
 <template>
-  <div class="right-panel">
-    <GlassCard class="panel-card" :interactive="false">
-      <div class="card-head">
-        <span>工作区</span>
-        <el-button text size="small" @click="pickWorkspace">
-          <Icon icon="mdi:folder-open" width="15" />
-        </el-button>
+  <aside class="details-panel">
+    <header class="details-head">
+      <div>
+        <h2>GitHub</h2>
+        <span v-if="github.identity">@{{ github.identity.login }}</span>
       </div>
-      <div class="workspace-path">{{ chat.workspace || '未选择目录' }}</div>
-      <template v-if="chat.workspace">
-        <el-button size="small" :loading="indexer.indexing" @click="buildIndex">
-          {{ indexer.hasIndex ? '重建索引' : '建立代码库索引' }}
-        </el-button>
-        <div v-if="indexer.hasIndex" class="rag">
-          <el-input v-model="ragQuery" placeholder="问代码库…" @keyup.enter="doRagSearch" />
-          <div v-if="indexer.hits.length" class="rag-hits">
-            <button v-for="h in indexer.hits" :key="h.file + h.score" class="rag-hit" @click="askCodebase(h)">
-              <div class="rag-file">{{ h.file }}</div>
-              <div class="rag-snippet">{{ h.snippet.slice(0, 80) }}</div>
-            </button>
-          </div>
-        </div>
-      </template>
-      <EmptyState v-else title="还没有工作区" desc="选一个本地代码目录，我才能读文件、改代码、跑命令。" />
-    </GlassCard>
+      <Icon icon="mdi:github" width="18" />
+    </header>
 
-    <GlassCard class="panel-card github-card" :interactive="false">
-      <div class="card-head">
-        <span>GitHub</span>
-        <span v-if="github.identity" class="gh-user">@{{ github.identity.login }}</span>
-      </div>
+    <EmptyState v-if="!settings.hasGithubToken" title="未连接 GitHub" desc="到设置页面配置 token 后，这里会显示真实仓库数据。" />
 
-      <template v-if="!settings.hasGithubToken">
-        <EmptyState title="未连接 GitHub" desc="到设置里填入 token。" />
-      </template>
-
-      <template v-else>
+    <template v-else>
+      <div class="repo-picker">
         <el-select
           v-model="github.currentRepo"
           value-key="id"
           placeholder="选择仓库"
           filterable
-          size="small"
-          class="repo-select"
-          @change="github.selectRepo"
+          @change="selectRepo"
         >
-          <el-option v-for="r in github.repos" :key="r.id" :label="r.full_name" :value="r" />
+          <el-option v-for="repo in github.repos" :key="repo.id" :label="repo.full_name" :value="repo" />
         </el-select>
+      </div>
 
-        <el-tabs v-if="github.currentRepo" v-model="tab" size="small">
+      <template v-if="github.currentRepo">
+        <el-tabs v-model="tab" class="repo-tabs" stretch>
           <el-tab-pane label="PR" name="pr">
             <SkeletonCard v-if="github.loading" :rows="3" />
             <EmptyState v-else-if="!github.prs.length" title="没有 PR" desc="这个仓库还没有 pull request。" />
-            <div v-else class="item-list">
-              <div v-for="p in github.prs.slice(0, 30)" :key="p.number" class="item glass-card">
-                <div class="item-title">#{{ p.number }} {{ p.title }}</div>
-                <div class="item-meta">{{ p.state }} · {{ dayjs(p.created_at).format('MM-DD') }}</div>
-                <el-button text size="small" @click.stop="summarize('PR', p)">
-                  <Icon icon="mdi:robot-outline" width="14" /> AI 总结
-                </el-button>
-              </div>
+            <div v-else class="repo-list">
+              <article v-for="pr in github.prs.slice(0, 30)" :key="pr.number" class="repo-row">
+                <div class="row-title">#{{ pr.number }} {{ pr.title }}</div>
+                <div class="row-meta">{{ pr.state }} · {{ dayjs(pr.created_at).format('MM-DD') }}</div>
+                <button class="ai-action" @click="summarize('PR', pr)"><Icon icon="mdi:robot-outline" width="14" /> AI 总结</button>
+              </article>
             </div>
           </el-tab-pane>
 
           <el-tab-pane label="Issue" name="issue">
             <SkeletonCard v-if="github.loading" :rows="3" />
             <EmptyState v-else-if="!github.issues.length" title="没有 Issue" desc="这个仓库还没有 issue。" />
-            <div v-else class="item-list">
-              <div v-for="i in github.issues.slice(0, 30)" :key="i.number" class="item glass-card">
-                <div class="item-title">#{{ i.number }} {{ i.title }}</div>
-                <div class="item-meta">{{ i.state }} · {{ dayjs(i.created_at).format('MM-DD') }}</div>
-                <el-button text size="small" @click.stop="summarize('Issue', i)">
-                  <Icon icon="mdi:robot-outline" width="14" /> AI 总结
-                </el-button>
-              </div>
+            <div v-else class="repo-list">
+              <article v-for="issue in github.issues.slice(0, 30)" :key="issue.number" class="repo-row">
+                <div class="row-title">#{{ issue.number }} {{ issue.title }}</div>
+                <div class="row-meta">{{ issue.state }} · {{ dayjs(issue.created_at).format('MM-DD') }}</div>
+                <button class="ai-action" @click="summarize('Issue', issue)"><Icon icon="mdi:robot-outline" width="14" /> AI 总结</button>
+              </article>
             </div>
           </el-tab-pane>
 
-          <el-tab-pane label="提交时间线" name="commit">
+          <el-tab-pane label="提交" name="commit">
             <SkeletonCard v-if="github.loading" :rows="3" />
-            <EmptyState v-else-if="!github.commits.length" title="没有提交" desc="" />
+            <EmptyState v-else-if="!github.commits.length" title="没有提交" desc="这个仓库还没有可展示的提交。" />
             <TimelineView
               v-else
-              :nodes="github.commits.slice(0, 40).map((c) => ({
-                id: c.sha,
-                title: c.commit.message.split('\n')[0],
-                subtitle: c.commit.author.name,
-                time: c.commit.author.date,
+              :nodes="github.commits.slice(0, 40).map((commit) => ({
+                id: commit.sha,
+                title: commit.commit.message.split('\n')[0],
+                subtitle: commit.commit.author.name,
+                time: commit.commit.author.date,
                 icon: 'mdi:source-commit'
               }))"
             />
           </el-tab-pane>
         </el-tabs>
 
-        <el-button
-          v-if="chat.workspace && github.currentRepo"
-          class="pr-btn"
-          type="primary"
-          size="small"
-          :loading="prBusy"
-          @click="oneClickPr"
-        >
-          <Icon icon="mdi:source-pull" width="14" /> 一键生成并推送 PR
-        </el-button>
+        <div class="detail-actions">
+          <el-button type="primary" :loading="prBusy" @click="oneClickPr">
+            <Icon icon="mdi:source-pull" width="15" /> 一键生成并推送 PR
+          </el-button>
+        </div>
       </template>
-    </GlassCard>
-  </div>
+
+      <EmptyState v-else-if="!github.loading" title="选择一个仓库" desc="选择后可以查看 PR、Issue 和提交记录。" />
+    </template>
+  </aside>
 </template>
 
 <style scoped>
-.right-panel {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-.panel-card {
-  padding: var(--space-4);
-}
-.card-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  font-size: 13px;
-  font-weight: 600;
-  margin-bottom: var(--space-3);
-}
-.gh-user {
-  color: var(--text-secondary);
-}
-.workspace-path {
-  font-size: 12px;
-  color: var(--text-secondary);
-  word-break: break-all;
-  margin-bottom: var(--space-3);
-}
-.rag {
-  margin-top: var(--space-3);
-}
-.rag-hits {
-  margin-top: var(--space-2);
-}
-.rag-hit {
-  width: 100%;
-  text-align: left;
-  background: var(--hover-bg);
-  border: none;
-  border-radius: var(--radius-sm);
-  padding: var(--space-2);
-  margin-bottom: var(--space-2);
-  cursor: pointer;
-}
-.rag-hit:hover {
-  background: var(--hover-bg);
-}
-.rag-file {
-  font-family: 'Cascadia Code', Consolas, monospace;
-  font-size: 12px;
-}
-.rag-snippet {
-  font-size: 11px;
-  color: var(--text-secondary);
-}
-.repo-select {
-  width: 100%;
-}
-.item-list {
-  display: flex;
-  flex-direction: column;
-}
-.item {
-  padding: var(--space-3);
-}
-.item-title {
-  font-size: 13px;
-}
-.item-meta {
-  font-size: 11px;
-  color: var(--text-faint);
-}
-.pr-btn {
-  width: 100%;
-}
+.details-panel { height: 100%; min-height: 0; display: flex; flex-direction: column; background: var(--panel-bg); border-left: 1px solid var(--glass-border); }
+.details-head { height: 54px; display: flex; align-items: center; justify-content: space-between; padding: 0 16px; border-bottom: 1px solid var(--glass-border); }
+.details-head h2 { margin: 0; font-size: 14px; }
+.details-head span { color: var(--text-secondary); font-size: 12px; }
+.repo-picker { padding: 14px 14px 0; }
+.repo-picker :deep(.el-select) { width: 100%; }
+.repo-tabs { flex: 1; min-height: 0; padding: 0 14px; }
+.repo-tabs :deep(.el-tabs__content) { height: calc(100% - 40px); overflow: auto; }
+.repo-list { display: flex; flex-direction: column; }
+.repo-row { padding: 12px 2px; border-bottom: 1px solid var(--glass-border); }
+.row-title { color: var(--text-primary); font-size: 13px; line-height: 1.45; }
+.row-meta { margin-top: 4px; color: var(--text-faint); font-size: 11px; }
+.ai-action { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; padding: 0; border: 0; color: var(--accent); background: transparent; cursor: pointer; font-size: 12px; }
+.detail-actions { padding: 14px 0; border-top: 1px solid var(--glass-border); }
+.detail-actions :deep(.el-button) { width: 100%; }
 </style>

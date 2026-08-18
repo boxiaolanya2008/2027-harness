@@ -6,6 +6,80 @@ export interface Settings {
 
 export type Role = 'user' | 'assistant'
 
+export type StreamState = 'streaming' | 'completed' | 'aborted' | 'failed'
+export type ToolCallStatus = 'running' | 'succeeded' | 'failed'
+
+export interface StreamUsage {
+  prompt_tokens?: number
+  completion_tokens?: number
+  total_tokens?: number
+  [key: string]: unknown
+}
+
+interface TurnEventBase {
+  seq: number
+  timestamp: number
+}
+
+export interface AssistantTextEvent extends TurnEventBase {
+  type: 'assistant_text'
+  text: string
+}
+
+export interface ReasoningEvent extends TurnEventBase {
+  type: 'reasoning'
+  text: string
+}
+
+export interface ToolCallEvent extends TurnEventBase {
+  type: 'tool_call'
+  callId: string
+  providerCallId?: string
+  index: number
+  phase: 'started' | 'arguments' | 'completed'
+  name?: string
+  argsFragment?: string
+  rawArgs: string
+  args?: Record<string, unknown>
+  error?: string
+}
+
+export interface ToolResultEvent extends TurnEventBase {
+  type: 'tool_result'
+  callId: string
+  providerCallId?: string
+  name: string
+  status: ToolCallStatus
+  content?: string
+  error?: string
+}
+
+export interface StreamStatusEvent extends TurnEventBase {
+  type: 'status'
+  state: StreamState
+  finishReason?: string | null
+  usage?: StreamUsage
+  error?: string
+}
+
+export interface StreamErrorEvent extends TurnEventBase {
+  type: 'error'
+  error: string
+}
+
+// One durable, ordered record of everything that happened in an assistant turn.
+export type AssistantTurnEvent =
+  | AssistantTextEvent
+  | ReasoningEvent
+  | ToolCallEvent
+  | ToolResultEvent
+  | StreamStatusEvent
+  | StreamErrorEvent
+
+type WithoutTurnMetadata<T> = T extends TurnEventBase ? Omit<T, 'seq' | 'timestamp'> : never
+export type AssistantTurnEventInput = WithoutTurnMetadata<AssistantTurnEvent>
+
+// Kept for the existing renderer store and tool-call display. New streaming code uses AssistantTurnEvent.
 export interface ToolCall {
   id: string
   name: string
@@ -18,8 +92,24 @@ export interface Message {
   id: string
   role: Role
   content: string
+  events?: AssistantTurnEvent[]
   toolCalls?: ToolCall[]
   createdAt: number
+}
+
+export interface ProviderHistoryToolCall {
+  id: string
+  type: 'function'
+  function: { name: string; arguments: string }
+}
+
+export interface ProviderHistoryMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool'
+  content?: string | null
+  tool_calls?: ProviderHistoryToolCall[]
+  tool_call_id?: string
+  name?: string
+  reasoning_content?: string
 }
 
 export interface Conversation {
@@ -27,7 +117,9 @@ export interface Conversation {
   title: string
   messages: Message[]
   workspace?: string
+  protocolHistory?: ProviderHistoryMessage[]
   createdAt: number
+  updatedAt?: number
 }
 
 export interface Repo {

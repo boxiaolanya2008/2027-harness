@@ -6,13 +6,14 @@ import { readFileIn, writeFileIn, listDir } from './ipc/fs'
 import { runCommand } from './ipc/shell'
 import { gh, ghPaginate } from './ipc/github'
 import { buildIndex, searchIndex, loadIndex, saveIndex } from './ipc/indexer'
+import { StateRepository } from './state/repository'
 
 function createWindow() {
   const win = new BrowserWindow({
     width: 1440,
     height: 900,
-    minWidth: 1080,
-    minHeight: 700,
+    minWidth: 1240,
+    minHeight: 760,
     backgroundColor: '#0b0e14',
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
@@ -30,6 +31,8 @@ function createWindow() {
 }
 
 function registerIpc() {
+  const state = new StateRepository(app.getPath('userData'))
+
   ipcMain.handle('settings:get', () => ({ aiKey: getSecret('aiKey'), githubToken: getSecret('githubToken') }))
   ipcMain.handle('settings:setAiKey', (_e, key: string) => setSecret('aiKey', key))
   ipcMain.handle('settings:setGithubToken', (_e, token: string) => setSecret('githubToken', token))
@@ -38,6 +41,13 @@ function registerIpc() {
     const r = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     return r.canceled ? null : r.filePaths[0]
   })
+
+  ipcMain.handle('conversations:list', () => state.listConversations())
+  ipcMain.handle('conversations:load', (_e, id: unknown) => state.loadConversation(id))
+  ipcMain.handle('conversations:save', (_e, conversation: unknown) => state.saveConversation(conversation))
+  ipcMain.handle('conversations:remove', (_e, id: unknown) => state.removeConversation(id))
+  ipcMain.handle('state:load', () => state.loadUiState())
+  ipcMain.handle('state:save', (_e, uiState: unknown) => state.saveUiState(uiState))
 
   ipcMain.handle('git:config', async () => {
     const name = await runGit(['config', '--global', 'user.name']).catch(() => '')

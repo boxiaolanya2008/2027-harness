@@ -23,6 +23,9 @@ export const useIndexerStore = defineStore('indexer', () => {
   }
 
   async function check(root: string) {
+    hits.value = []
+    fileCount.value = 0
+    chunkCount.value = 0
     hasIndex.value = await window.api.indexer.cached(root)
   }
 

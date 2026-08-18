@@ -1,5 +1,32 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+export type JsonPrimitive = string | number | boolean | null
+export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
+export type JsonObject = { [key: string]: JsonValue }
+
+export type SerializedConversation = JsonObject & {
+  id: string
+  title?: string
+  workspace?: string
+  createdAt?: number
+}
+
+export interface ConversationSummary {
+  id: string
+  title: string
+  workspace?: string
+  createdAt?: number
+  updatedAt: number
+}
+
+export interface UiState {
+  selectedWorkspace: string | null
+  recentWorkspaces: string[]
+  currentConversationId: string | null
+  rightPanelTab: string
+  repo: JsonObject | null
+}
+
 const api = {
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
@@ -8,6 +35,17 @@ const api = {
   },
   dialog: {
     pickDir: () => ipcRenderer.invoke('dialog:pickDir')
+  },
+  conversations: {
+    list: (): Promise<ConversationSummary[]> => ipcRenderer.invoke('conversations:list'),
+    load: (id: string): Promise<SerializedConversation | null> => ipcRenderer.invoke('conversations:load', id),
+    save: (conversation: SerializedConversation): Promise<ConversationSummary> =>
+      ipcRenderer.invoke('conversations:save', conversation),
+    remove: (id: string): Promise<boolean> => ipcRenderer.invoke('conversations:remove', id)
+  },
+  state: {
+    load: (): Promise<UiState> => ipcRenderer.invoke('state:load'),
+    save: (state: UiState): Promise<UiState> => ipcRenderer.invoke('state:save', state)
   },
   git: {
     config: () => ipcRenderer.invoke('git:config'),

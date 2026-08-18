@@ -4,14 +4,17 @@ import { useRouter } from 'vue-router'
 import NProgress from 'nprogress'
 import { useSettingsStore } from '@/stores/settings'
 import { useThemeStore } from '@/stores/theme'
+import { useChatStore } from '@/stores/chat'
 
 const router = useRouter()
 const settings = useSettingsStore()
 const theme = useThemeStore()
+const chat = useChatStore()
 
 onMounted(async () => {
   theme.apply()
   await settings.init()
+  await chat.hydrate()
 })
 
 router.beforeEach(() => {
