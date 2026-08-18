@@ -10,7 +10,7 @@ defineProps<{ calls: ToolCall[] }>()
     <div v-for="c in calls" :key="c.id" class="tool-call" :class="`tool-call--${c.status}`">
       <div class="tool-head">
         <Icon
-          :icon="c.status === 'running' ? 'eos-icons:loading' : c.status === 'error' ? 'mdi:alert-circle' : 'mdi:check-circle'"
+          :icon="c.status === 'running' ? 'mdi:loading' : c.status === 'error' ? 'mdi:alert-circle' : 'mdi:check-circle'"
           width="14"
         />
         <span class="tool-name">{{ c.name }}</span>
@@ -31,7 +31,7 @@ defineProps<{ calls: ToolCall[] }>()
 .tool-call {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--hover-bg);
   padding: var(--space-2) var(--space-3);
   font-size: 12px;
 }

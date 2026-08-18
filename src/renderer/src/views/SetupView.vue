@@ -4,9 +4,11 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import GlassCard from '@/components/GlassCard.vue'
 import { useSettingsStore } from '@/stores/settings'
+import { useThemeStore } from '@/stores/theme'
 
 const router = useRouter()
 const settings = useSettingsStore()
+const theme = useThemeStore()
 
 const apiBaseUrl = ref(settings.settings.apiBaseUrl)
 const model = ref(settings.settings.model)
@@ -92,6 +94,15 @@ async function save() {
         <p>2027 版 AI 编码代理。先配好模型与 GitHub，我就能动手改你的代码。</p>
       </header>
 
+      <div class="theme-row">
+        <span>主题</span>
+        <el-radio-group :model-value="theme.mode" size="small" @update:model-value="theme.set">
+          <el-radio-button value="system">跟随系统</el-radio-button>
+          <el-radio-button value="light">浅色</el-radio-button>
+          <el-radio-button value="dark">深色</el-radio-button>
+        </el-radio-group>
+      </div>
+
       <div class="setup-grid">
         <GlassCard class="setup-card">
           <h2>AI Provider</h2>
@@ -161,6 +172,14 @@ async function save() {
   color: transparent;
 }
 .setup-head p {
+  color: var(--text-secondary);
+}
+.theme-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
   color: var(--text-secondary);
 }
 .setup-grid {

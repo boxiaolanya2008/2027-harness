@@ -48,7 +48,12 @@ defineProps<{
   height: 10px;
 }
 .shimmer {
-  background: linear-gradient(90deg, rgba(255,255,255,.05) 25%, rgba(255,255,255,.12) 50%, rgba(255,255,255,.05) 75%);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--text-faint) 12%, transparent) 25%,
+    color-mix(in srgb, var(--text-faint) 22%, transparent) 50%,
+    color-mix(in srgb, var(--text-faint) 12%, transparent) 75%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.4s infinite;
 }

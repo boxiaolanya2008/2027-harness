@@ -1,5 +1,6 @@
 @import './tokens.css';
 @import 'element-plus/dist/index.css';
+@import 'element-plus/theme-chalk/dark/css-vars.css';
 @import 'animate.css/animate.min.css';
 @import 'nprogress/nprogress.css';
 
@@ -18,12 +19,12 @@ body {
   font-family:
     -apple-system, 'Segoe UI', 'Microsoft YaHei', Roboto, sans-serif;
   color: var(--text-primary);
-  background: #0b0e14;
+  background-color: var(--bg-base);
   /* 液态玻璃背景：半透明磨砂 + 背景折射光斑 */
   background-image:
-    radial-gradient(600px 400px at 15% 10%, rgba(110, 168, 255, 0.18), transparent 60%),
-    radial-gradient(700px 500px at 85% 20%, rgba(192, 132, 252, 0.14), transparent 60%),
-    radial-gradient(500px 400px at 50% 90%, rgba(80, 200, 180, 0.1), transparent 60%);
+    radial-gradient(600px 400px at 15% 10%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 60%),
+    radial-gradient(700px 500px at 85% 20%, color-mix(in srgb, var(--accent-2) 14%, transparent), transparent 60%),
+    radial-gradient(500px 400px at 50% 90%, color-mix(in srgb, #14b8a6 10%, transparent), transparent 60%);
   background-attachment: fixed;
 }
 
@@ -32,7 +33,7 @@ body {
   height: 8px;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--hover-bg);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-track {

@@ -66,7 +66,7 @@ function scrollDown() {
               <ToolCallLog v-if="m.toolCalls?.length" :calls="m.toolCalls" />
               <MarkdownView v-if="m.content" :content="m.content" />
               <span v-if="!m.content && m.role === 'assistant'" class="typing">
-                <Icon icon="eos-icons:three-dots-loading" width="20" />
+                <Icon icon="mdi:dots-horizontal" width="24" />
               </span>
             </div>
           </div>
@@ -114,7 +114,7 @@ function scrollDown() {
   flex-direction: column;
 }
 .conv-col {
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--panel-bg);
   border-radius: var(--radius-lg);
   padding: var(--space-3);
 }
@@ -133,8 +133,7 @@ function scrollDown() {
   border-radius: var(--radius-sm);
   color: var(--text-primary);
   cursor: pointer;
-}
-.new-btn:hover {
+}.new-btn:hover {
   border-color: var(--accent);
 }
 .conv-list {

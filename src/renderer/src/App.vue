@@ -3,11 +3,14 @@ import { onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import NProgress from 'nprogress'
 import { useSettingsStore } from '@/stores/settings'
+import { useThemeStore } from '@/stores/theme'
 
 const router = useRouter()
 const settings = useSettingsStore()
+const theme = useThemeStore()
 
 onMounted(async () => {
+  theme.apply()
   await settings.init()
 })
 

@@ -44,7 +44,7 @@ const html = computed(() => marked.parse(props.content || ''))
   font-family: 'Cascadia Code', Consolas, monospace;
 }
 .md :deep(:not(pre) > code) {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--hover-bg);
   padding: 2px 6px;
   border-radius: 4px;
 }

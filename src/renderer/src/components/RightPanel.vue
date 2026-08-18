@@ -249,7 +249,7 @@ async function oneClickPr() {
 .rag-hit {
   width: 100%;
   text-align: left;
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--hover-bg);
   border: none;
   border-radius: var(--radius-sm);
   padding: var(--space-2);
@@ -257,7 +257,7 @@ async function oneClickPr() {
   cursor: pointer;
 }
 .rag-hit:hover {
-  background: rgba(255, 255, 255, 0.09);
+  background: var(--hover-bg);
 }
 .rag-file {
   font-family: 'Cascadia Code', Consolas, monospace;

@@ -13,10 +13,30 @@
   --radius-md: 14px;
   --radius-lg: 20px;
 
+  --glass-blur: blur(18px);
+}
+
+/* 浅色（默认） */
+html[data-theme='light'] {
+  --bg-base: #f3f5fa;
+  --panel-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg: rgba(255, 255, 255, 0.66);
+  --glass-border: rgba(23, 35, 70, 0.1);
+  --hover-bg: rgba(23, 35, 70, 0.06);
+  --text-primary: #1b2333;
+  --text-secondary: #57627a;
+  --text-faint: #97a1b3;
+  --accent: #2f6fed;
+  --accent-2: #7c5cf0;
+}
+
+/* 深色 */
+html[data-theme='dark'] {
+  --bg-base: #0b0e14;
+  --panel-bg: rgba(255, 255, 255, 0.04);
   --glass-bg: rgba(255, 255, 255, 0.06);
   --glass-border: rgba(255, 255, 255, 0.12);
-  --glass-blur: blur(18px);
-
+  --hover-bg: rgba(255, 255, 255, 0.08);
   --text-primary: #e8ecf3;
   --text-secondary: #9aa6b8;
   --text-faint: #5c6778;
@@ -39,11 +59,17 @@
 
 .glass-card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-  border-color: rgba(255, 255, 255, 0.22);
+  box-shadow: var(--card-hover-shadow);
 }
 
-/* Popover / Timeline / EmptyState 通用留白容器 */
+html[data-theme='light'] {
+  --card-hover-shadow: 0 12px 28px rgba(23, 35, 70, 0.16);
+}
+html[data-theme='dark'] {
+  --card-hover-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+/* Popover / Timeline / EmptyState / section */
 .section {
   padding: var(--space-5);
 }
