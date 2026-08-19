@@ -17,6 +17,7 @@ async function load() {
   if (!chat.workspace) { repoState.value = 'none'; commits.value = []; return }
   loading.value = true
   try {
+    await window.api.git.ensureRepo(chat.workspace)
     const out = await window.api.git.timeline(chat.workspace)
     commits.value = out.commits.map((commit: any) => ({ hash: commit.sha, subject: commit.subject, author: commit.author, date: commit.date }))
     repoState.value = out.isRepo ? 'repo' : 'none'

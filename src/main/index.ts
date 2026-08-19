@@ -115,6 +115,16 @@ function registerIpc() {
     await runGit(['branch', '-M', 'main'], cwd)
     return true
   })
+  ipcMain.handle('git:ensureRepo', async (_e, cwd: string) => {
+    const isRepo = await runGit(['rev-parse', '--is-inside-work-tree'], cwd).then((value) => value === 'true').catch(() => false)
+    if (!isRepo) {
+      await runGit(['init'], cwd)
+      await runGit(['branch', '-M', 'main'], cwd)
+    }
+    const branch = (await runGit(['branch', '--show-current'], cwd).catch(() => '')) || 'main'
+    const remote = await runGit(['remote', 'get-url', 'origin'], cwd).catch(() => '')
+    return { initialized: !isRepo, branch, remote }
+  })
   ipcMain.handle('git:publish', async (_e, cwd: string, repoName: string) => {
     const name = String(repoName || '').trim()
     if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(name)) {
@@ -131,21 +141,27 @@ function registerIpc() {
       await runGit(['branch', '-M', 'main'], cwd)
     }
     const existingRemote = await runGit(['remote', 'get-url', 'origin'], cwd).catch(() => '')
-    if (existingRemote) throw new Error('此工作区已有 origin 远程仓库')
     const branch = (await runGit(['branch', '--show-current'], cwd).catch(() => '')) || 'main'
-    await runGit(['add', '-A'], cwd)
-    await runGit(['commit', '-m', 'Initial commit'], cwd)
+    const hasChanges = await runGit(['status', '--porcelain'], cwd).then((value) => !!value).catch(() => false)
+    const hasCommit = await runGit(['rev-parse', '--verify', 'HEAD'], cwd).then(() => true).catch(() => false)
+    if (hasChanges || !hasCommit) {
+      await runGit(['add', '-A'], cwd)
+      await runGit(['commit', '-m', hasCommit ? 'Publish current workspace' : 'Initial commit'], cwd)
+    }
 
-    // Create the remote before pushing; pushing never uses --force.
-    const created = await gh('/user/repos', {
-      method: 'POST',
-      body: JSON.stringify({ name, private: false, auto_init: false })
-    })
-    const remoteUrl = created?.clone_url || created?.html_url
-    if (!remoteUrl) throw new Error('GitHub 未返回可用的远程地址')
-    await runGit(['remote', 'add', 'origin', remoteUrl], cwd)
+    let created: any = null
+    if (!existingRemote) {
+      // Create the remote before pushing; pushing never uses --force.
+      created = await gh('/user/repos', {
+        method: 'POST',
+        body: JSON.stringify({ name, private: false, auto_init: false })
+      })
+      const remoteUrl = created?.clone_url || created?.html_url
+      if (!remoteUrl) throw new Error('GitHub 未返回可用的远程地址')
+      await runGit(['remote', 'add', 'origin', remoteUrl], cwd)
+    }
     await runGit(['-c', `http.extraheader=AUTHORIZATION: bearer ${token}`, 'push', '-u', 'origin', branch], cwd)
-    return { name: created.name || name, full_name: created.full_name || name, html_url: created.html_url || '' }
+    return { name: created?.name || name, full_name: created?.full_name || name, html_url: created?.html_url || existingRemote }
   })
   ipcMain.handle('git:commitAll', async (_e, cwd: string, message: string) => {
     await runGit(['add', '-A'], cwd)

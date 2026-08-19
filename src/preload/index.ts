@@ -154,6 +154,7 @@ const api = {
     remote: (cwd: string) => ipcRenderer.invoke('git:remote', cwd),
     timeline: (cwd: string) => ipcRenderer.invoke('git:timeline', cwd),
     init: (cwd: string) => ipcRenderer.invoke('git:init', cwd),
+    ensureRepo: (cwd: string) => ipcRenderer.invoke('git:ensureRepo', cwd),
     publish: (cwd: string, repoName: string) => ipcRenderer.invoke('git:publish', cwd, repoName),
     commitAll: (cwd: string, message: string) => ipcRenderer.invoke('git:commitAll', cwd, message),
     newBranch: (cwd: string, branch: string) => ipcRenderer.invoke('git:newBranch', cwd, branch),
