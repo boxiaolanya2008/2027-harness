@@ -35,7 +35,14 @@ function registerIpc() {
   const state = new StateRepository(userDataPath)
   const changes = new ChangeJournal(userDataPath)
 
-  ipcMain.handle('settings:get', () => ({ aiKey: getSecret('aiKey'), githubToken: getSecret('githubToken') }))
+  // Status only: secrets never cross the settings read API boundary.
+  ipcMain.handle('settings:get', () => ({
+    hasAiKey: !!getSecret('aiKey'),
+    hasGithubToken: !!getSecret('githubToken')
+  }))
+  // Temporary compatibility path for existing renderer AI requests. Keep this
+  // separate from settings:get and use it only immediately before a request.
+  ipcMain.handle('settings:getAiKeyForRequest', () => getSecret('aiKey'))
   ipcMain.handle('settings:setAiKey', (_e, key: string) => setSecret('aiKey', key))
   ipcMain.handle('settings:setGithubToken', (_e, token: string) => setSecret('githubToken', token))
 
@@ -54,10 +61,11 @@ function registerIpc() {
   ipcMain.handle('state:load', () => state.loadUiState())
   ipcMain.handle('state:save', (_e, uiState: unknown) => state.saveUiState(uiState))
 
-  ipcMain.handle('git:config', async () => {
+  // Read-only, allow-listed git identity. This never writes global config.
+  ipcMain.handle('git:identity', async () => {
     const name = await runGit(['config', '--global', 'user.name']).catch(() => '')
     const email = await runGit(['config', '--global', 'user.email']).catch(() => '')
-    return { name, email }
+    return { name: name.trim(), email: email.trim() }
   })
 
   ipcMain.handle('git:status', (_e, cwd: string) => runGit(['status', '--porcelain'], cwd))

@@ -119,7 +119,8 @@ export interface RestoreResult {
 
 const api = {
   settings: {
-    get: () => ipcRenderer.invoke('settings:get'),
+    get: (): Promise<{ hasAiKey: boolean; hasGithubToken: boolean }> => ipcRenderer.invoke('settings:get'),
+    getAiKeyForRequest: (): Promise<string> => ipcRenderer.invoke('settings:getAiKeyForRequest'),
     setAiKey: (key: string) => ipcRenderer.invoke('settings:setAiKey', key),
     setGithubToken: (token: string) => ipcRenderer.invoke('settings:setGithubToken', token)
   },
@@ -143,7 +144,7 @@ const api = {
     save: (state: UiState): Promise<UiState> => ipcRenderer.invoke('state:save', state)
   },
   git: {
-    config: () => ipcRenderer.invoke('git:config'),
+    identity: (): Promise<{ name: string; email: string }> => ipcRenderer.invoke('git:identity'),
     status: (cwd: string) => ipcRenderer.invoke('git:status', cwd),
     diff: (cwd: string) => ipcRenderer.invoke('git:diff', cwd),
     branch: (cwd: string) => ipcRenderer.invoke('git:branch', cwd),

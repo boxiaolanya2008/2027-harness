@@ -7,10 +7,13 @@ import MarkdownView from '@/components/MarkdownView.vue'
 import TurnTimeline from '@/components/TurnTimeline.vue'
 import RightPanel from '@/components/RightPanel.vue'
 import WorkspaceSidebar from '@/components/WorkspaceSidebar.vue'
+import ChatComposer from '@/components/ChatComposer.vue'
 import { useChatStore } from '@/stores/chat'
+import { useSettingsStore } from '@/stores/settings'
 
 const router = useRouter()
 const chat = useChatStore()
+const settings = useSettingsStore()
 const input = ref('')
 const listRef = ref<HTMLElement | null>(null)
 const rightOpen = ref(true)
@@ -122,23 +125,7 @@ watch(
       </div>
 
       <footer class="composer-wrap">
-        <div class="composer">
-          <el-input
-            v-model="input"
-            type="textarea"
-            :autosize="{ minRows: 2, maxRows: 8 }"
-            resize="none"
-            placeholder="描述要完成的工作，或询问 GitHub…"
-            @keydown.enter.exact.prevent="send"
-          />
-          <div class="composer-foot">
-            <span>{{ chat.workspace ? `工作区：${activeWorkspaceName}` : '未选工作区：可进行普通模型对话' }}</span>
-            <div>
-              <el-button v-if="chat.running" type="danger" text @click="chat.stop()">停止</el-button>
-              <el-button type="primary" :disabled="!input.trim() || chat.running" @click="send">发送</el-button>
-            </div>
-          </div>
-        </div>
+        <ChatComposer v-model="input" :running="chat.running" :workspace-name="chat.workspace ? activeWorkspaceName : '普通对话'" :model="settings.settings.model" :has-github="settings.hasGithubToken" @submit="send" @stop="chat.stop" />
       </footer>
     </section>
 

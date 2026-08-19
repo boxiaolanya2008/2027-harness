@@ -182,6 +182,9 @@ export const useChatStore = defineStore('chat', () => {
   function newConversation() {
     if (running.value) return current() || blankConversation(workspace.value || undefined, selectedProjectId.value || undefined)
     const project = selectedProjectId.value ? projects.value.find((item) => item.id === selectedProjectId.value && !item.archivedAt) : undefined
+    if (project && !expandedProjectIds.value.includes(project.id)) {
+      expandedProjectIds.value = [...expandedProjectIds.value, project.id]
+    }
     const conversation = blankConversation(project?.workspace || workspace.value || undefined, project?.id)
     conversations.value.unshift(conversation)
     currentId.value = conversation.id
@@ -328,7 +331,7 @@ export const useChatStore = defineStore('chat', () => {
         conversation.protocolHistory = result.history as ProviderHistoryMessage[]
       } else {
         const store = useSettingsStore()
-        const key = (await window.api.settings.get()).aiKey
+        const key = await window.api.settings.getAiKeyForRequest()
         const history = (conversation.protocolHistory || []) as any[]
         const messages = history.length ? [...history, { role: 'user', content: text }] : [{ role: 'user', content: text }]
         let output = ''

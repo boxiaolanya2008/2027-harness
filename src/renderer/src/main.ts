@@ -23,6 +23,10 @@ import deleteOutline from '@iconify-icons/mdi/delete-outline'
 import pencilOutline from '@iconify-icons/mdi/pencil-outline'
 import undo from '@iconify-icons/mdi/undo'
 import history from '@iconify-icons/mdi/history'
+import paletteOutline from '@iconify-icons/mdi/palette-outline'
+import tuneVariant from '@iconify-icons/mdi/tune-variant'
+import creationOutline from '@iconify-icons/mdi/creation-outline'
+import arrowUp from '@iconify-icons/mdi/arrow-up'
 import chevronRight from '@iconify-icons/mdi/chevron-right'
 import alertCircleOutline from '@iconify-icons/mdi/alert-circle-outline'
 import headSnowflakeOutline from '@iconify-icons/mdi/head-snowflake-outline'
@@ -53,6 +57,10 @@ addIcon('mdi:delete-outline', deleteOutline)
 addIcon('mdi:pencil-outline', pencilOutline)
 addIcon('mdi:undo', undo)
 addIcon('mdi:history', history)
+addIcon('mdi:palette-outline', paletteOutline)
+addIcon('mdi:tune-variant', tuneVariant)
+addIcon('mdi:creation-outline', creationOutline)
+addIcon('mdi:arrow-up', arrowUp)
 addIcon('mdi:chevron-right', chevronRight)
 addIcon('mdi:alert-circle-outline', alertCircleOutline)
 addIcon('mdi:head-snowflake-outline', headSnowflakeOutline)

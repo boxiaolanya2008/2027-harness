@@ -19,13 +19,29 @@ export const useSettingsStore = defineStore('settings', () => {
   })
   const hasAiKey = ref(false)
   const hasGithubToken = ref(false)
+  const gitIdentity = ref<{ name: string; email: string }>({ name: '', email: '' })
   const ready = ref(false)
+  const error = ref('')
+  let initializing: Promise<void> | null = null
 
   async function init() {
-    const s = await window.api.settings.get()
-    hasAiKey.value = !!s.aiKey
-    hasGithubToken.value = !!s.githubToken
-    ready.value = true
+    if (ready.value) return
+    if (initializing) return initializing
+    initializing = Promise.all([window.api.settings.get(), window.api.git.identity()]).then(([status, identity]) => {
+      hasAiKey.value = status.hasAiKey
+      hasGithubToken.value = status.hasGithubToken
+      gitIdentity.value = identity
+    }).catch((reason) => {
+      error.value = reason?.message || String(reason)
+    }).finally(() => {
+      ready.value = true
+      initializing = null
+    })
+    return initializing
+  }
+
+  async function refreshGitIdentity() {
+    gitIdentity.value = await window.api.git.identity()
   }
 
   function persist() {
@@ -47,5 +63,18 @@ export const useSettingsStore = defineStore('settings', () => {
 
   const configured = () => hasAiKey.value && !!settings.value.model
 
-  return { settings, hasAiKey, hasGithubToken, ready, init, persist, setAiKey, setGithubToken, configured }
+  return {
+    settings,
+    hasAiKey,
+    hasGithubToken,
+    gitIdentity,
+    ready,
+    error,
+    init,
+    refreshGitIdentity,
+    persist,
+    setAiKey,
+    setGithubToken,
+    configured
+  }
 })

@@ -58,7 +58,7 @@ async function oneClickPr() {
       ElMessage.info('工作区没有未提交改动')
       return
     }
-    const key = (await window.api.settings.get()).aiKey
+    const key = await window.api.settings.getAiKeyForRequest()
     const prompt = `根据以下 git diff 生成：1) 一句 commit message（中文，动词开头）2) PR title 3) PR body（中文，说明改动与动机）。只输出 JSON：{"message":"","title":"","body":""}\n\n${diff.slice(0, 6000)}`
     const raw = await chatOnce(settings.settings, key, [{ role: 'user', content: prompt }])
     const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}')

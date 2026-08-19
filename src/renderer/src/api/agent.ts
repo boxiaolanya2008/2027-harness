@@ -86,7 +86,7 @@ export async function runAgent(
   context?: { conversationId: string; turnId: string }
 ): Promise<RunAgentResult> {
   const settings = settingsStore.settings
-  const apiKey = (await window.api.settings.get()).aiKey
+  const apiKey = await window.api.settings.getAiKeyForRequest()
   const messages: ChatMsg[] = history.length
     ? [...history]
     : [{ role: 'system', content: `${SYSTEM}\n当前工作区：${workspace}` }]

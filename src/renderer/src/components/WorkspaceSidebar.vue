@@ -15,9 +15,7 @@ const sortedConversations = computed(() => [...chat.conversations].sort((left, r
 const activeProjects = computed(() => chat.projects
   .filter((project) => !project.archivedAt)
   .sort((left, right) => right.updatedAt - left.updatedAt))
-const ungroupedConversations = computed(() => sortedConversations.value.filter((conversation) =>
-  !conversation.projectId || !chat.projects.some((project) => project.id === conversation.projectId && !project.archivedAt)
-))
+const ungroupedConversations = computed(() => sortedConversations.value.filter((conversation) => !conversation.projectId))
 const groupedProjects = computed(() => activeProjects.value.map((project) => ({
   project,
   conversations: sortedConversations.value.filter((conversation) => conversation.projectId === project.id)
@@ -67,8 +65,10 @@ function formatConversationTime(conversation: Conversation) {
       <div class="conversation-list">
         <section v-for="group in groupedProjects" :key="group.project.id" class="project-group">
           <div class="project-head" :class="{ active: group.project.id === chat.selectedProjectId }">
+            <button class="project-toggle" :title="isExpanded(group.project) ? '折叠项目' : '展开项目'" :aria-expanded="isExpanded(group.project)" @click="chat.toggleProjectExpanded(group.project.id)">
+              <Icon :icon="isExpanded(group.project) ? 'mdi:chevron-down' : 'mdi:chevron-right'" width="16" />
+            </button>
             <button class="project-select" :title="group.project.workspace" @click="chat.selectProject(group.project.id)">
-              <Icon :icon="isExpanded(group.project) ? 'mdi:chevron-down' : 'mdi:chevron-right'" width="16" @click.stop="chat.toggleProjectExpanded(group.project.id)" />
               <Icon icon="mdi:folder-outline" width="16" /><span>{{ group.project.name }}</span><small>{{ group.conversations.length }}</small>
             </button>
             <button class="project-archive" title="归档项目" @click="chat.archiveProject(group.project.id)"><Icon icon="mdi:archive-outline" width="15" /></button>
@@ -76,7 +76,7 @@ function formatConversationTime(conversation: Conversation) {
           <div v-if="isExpanded(group.project)" class="project-conversations">
             <button v-for="conversation in group.conversations" :key="conversation.id" class="conversation-row" :class="{ active: conversation.id === chat.currentId }" @click="chat.select(conversation.id)">
               <Icon class="conversation-icon" icon="mdi:message-text-outline" width="16" />
-              <span class="conversation-copy"><strong>{{ conversation.title }}</strong><small>{{ formatConversationTime(conversation) }}</small></span>
+              <span class="conversation-copy"><strong>{{ conversation.title }}</strong></span>
               <span class="conversation-actions"><span class="conversation-time">{{ formatConversationTime(conversation) }}</span><span class="delete-action" title="删除任务" @click.stop="chat.remove(conversation.id)"><Icon icon="mdi:delete-outline" width="15" /></span></span>
             </button>
             <p v-if="!group.conversations.length" class="empty-group">尚无任务</p>
@@ -90,7 +90,7 @@ function formatConversationTime(conversation: Conversation) {
           <div class="project-conversations">
             <button v-for="conversation in ungroupedConversations" :key="conversation.id" class="conversation-row" :class="{ active: conversation.id === chat.currentId }" @click="chat.select(conversation.id)">
               <Icon class="conversation-icon" icon="mdi:message-text-outline" width="16" />
-              <span class="conversation-copy"><strong>{{ conversation.title }}</strong><small>{{ formatConversationTime(conversation) }}</small></span>
+              <span class="conversation-copy"><strong>{{ conversation.title }}</strong></span>
               <span class="conversation-actions"><span class="conversation-time">{{ formatConversationTime(conversation) }}</span><span class="delete-action" title="删除任务" @click.stop="chat.remove(conversation.id)"><Icon icon="mdi:delete-outline" width="15" /></span></span>
             </button>
           </div>
@@ -127,24 +127,26 @@ function formatConversationTime(conversation: Conversation) {
 .conversation-count { color: var(--text-faint); font-size: 11px; font-weight: 500; }
 .conversation-list { min-width: 0; min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; }
 .project-group { margin-bottom: 5px; }
-.project-head { display: flex; align-items: center; min-width: 0; border-radius: var(--radius-sm); color: var(--text-secondary); }
-.project-head:hover, .project-head.active { color: var(--text-primary); background: var(--selected-bg); }
-.project-select { display: flex; min-width: 0; flex: 1; align-items: center; gap: 6px; padding: 8px 7px; border: 0; color: inherit; background: transparent; cursor: pointer; text-align: left; }
+.project-head { position: relative; display: flex; align-items: center; min-width: 0; border-radius: var(--radius-sm); color: var(--text-secondary); }
+.project-head:hover { color: var(--text-primary); background: var(--hover-bg); }
+.project-head.active { color: var(--text-primary); background: var(--selected-bg); box-shadow: inset 3px 0 0 var(--accent); }
+.project-toggle { display: grid; place-items: center; flex: 0 0 auto; width: 28px; height: 30px; padding: 0; border: 0; border-radius: var(--radius-sm); color: inherit; background: transparent; cursor: pointer; }
+.project-toggle:hover { color: var(--accent); background: var(--hover-bg); }
+.project-select { display: flex; min-width: 0; flex: 1; align-items: center; gap: 6px; padding: 7px 5px 7px 0; border: 0; color: inherit; background: transparent; cursor: pointer; text-align: left; }
 .project-select span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 650; }
 .project-select small { color: var(--text-faint); font-size: 10px; }
 .project-archive { display: grid; place-items: center; width: 27px; height: 27px; margin-right: 3px; border: 0; border-radius: 5px; color: var(--text-faint); background: transparent; cursor: pointer; opacity: 0; }
 .project-head:hover .project-archive, .project-head:focus-within .project-archive { opacity: 1; }
 .project-archive:hover { color: var(--accent); background: var(--hover-bg); }
-.project-conversations { padding-left: 10px; }
-.empty-group { margin: 2px 8px 7px 30px; color: var(--text-faint); font-size: 11px; }
+.project-conversations { padding-left: 22px; }
+.empty-group { margin: 2px 8px 6px 8px; color: var(--text-faint); font-size: 11px; }
 .ungrouped-group { border-top: 1px solid var(--glass-border); margin-top: 8px; padding-top: 7px; }
-.conversation-row { position: relative; display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 8px; border: 0; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; cursor: pointer; text-align: left; font-size: 13px; transition: color 160ms ease, background-color 160ms ease, transform 160ms ease; }
+.conversation-row { position: relative; display: flex; align-items: center; gap: 8px; width: 100%; padding: 6px 8px; border: 0; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; cursor: pointer; text-align: left; font-size: 13px; transition: color 160ms ease, background-color 160ms ease, transform 160ms ease; }
 .conversation-row:hover { background: var(--hover-bg); color: var(--text-primary); transform: translateX(2px); }
 .conversation-row.active { color: var(--text-primary); background: var(--selected-bg); }
 .conversation-icon { flex: 0 0 auto; color: var(--text-faint); }
-.conversation-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+.conversation-copy { display: flex; min-width: 0; flex: 1; }
 .conversation-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 500; }
-.conversation-copy small { color: var(--text-faint); font-size: 10px; }
 .conversation-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 3px; color: var(--text-faint); }
 .conversation-time { font-size: 10px; }
 .delete-action { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 5px; opacity: 0; }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { useSettingsStore } from '@/stores/settings'
 import { useThemeStore, type ThemeMode } from '@/stores/theme'
@@ -18,14 +18,16 @@ const apiKey = ref('')
 const githubToken = ref('')
 const testing = ref(false)
 const saving = ref(false)
-const gitIdentity = ref<{ name: string; email: string } | null>(null)
+const gitIdentity = computed(() => settings.gitIdentity)
 
-async function storedSecrets() {
-  return window.api.settings.get()
+// Credentials are only held in these transient input refs and are never read back.
+function clearEnteredSecrets() {
+  apiKey.value = ''
+  githubToken.value = ''
 }
 
 async function testConnection() {
-  const secret = apiKey.value || (await storedSecrets()).aiKey
+  const secret = apiKey.value || (await window.api.settings.getAiKeyForRequest())
   if (!secret || !model.value) {
     ElMessage.warning('先填 model 和 API key')
     return
@@ -47,23 +49,21 @@ async function testConnection() {
 }
 
 async function importGitConfig() {
-  const identity = await window.api.git.config()
-  gitIdentity.value = identity
+  await settings.refreshGitIdentity()
+  const identity = settings.gitIdentity
   ElMessage[identity.name || identity.email ? 'success' : 'info'](
     identity.name || identity.email ? '已从本地 git config 导入身份' : '本地 git config 里没有 user.name / user.email'
   )
 }
 
 async function fetchIdentity() {
-  const token = githubToken.value || (await storedSecrets()).githubToken
-  if (!token) {
+  if (githubToken.value) await settings.setGithubToken(githubToken.value)
+  if (!settings.hasGithubToken) {
     ElMessage.warning('先填 GitHub token')
     return
   }
   try {
-    if (githubToken.value) await settings.setGithubToken(githubToken.value)
     const user = await window.api.gh.get('/user')
-    gitIdentity.value = { name: user.login, email: user.email || '' }
     ElMessage.success(`身份：${user.login}`)
   } catch (e: any) {
     ElMessage.error(e.message)
@@ -82,6 +82,7 @@ async function save() {
     settings.persist()
     if (apiKey.value) await settings.setAiKey(apiKey.value)
     if (githubToken.value) await settings.setGithubToken(githubToken.value)
+    clearEnteredSecrets()
     ElMessage.success(props.mode === 'setup' ? '配置已保存' : '设置已保存')
     emit('saved')
   } finally {
@@ -137,9 +138,9 @@ async function save() {
         <el-button @click="importGitConfig">从本地 git config 导入身份</el-button>
         <el-button @click="fetchIdentity">验证 GitHub 身份</el-button>
       </div>
-      <div v-if="gitIdentity" class="identity">
-        <strong>{{ gitIdentity.name }}</strong>
-        <span>{{ gitIdentity.email || '未提供邮箱' }}</span>
+      <div v-if="gitIdentity.name || gitIdentity.email" class="identity">
+        <strong>{{ gitIdentity.name || '未配置 user.name' }}</strong>
+        <span>{{ gitIdentity.email || '未配置 user.email' }}</span>
       </div>
     </section>
 
