@@ -12,6 +12,7 @@ export interface ComposerAttachment {
 export interface Settings {
   apiBaseUrl: string
   model: string
+  models?: string[]
 }
 
 export type Role = 'user' | 'assistant'

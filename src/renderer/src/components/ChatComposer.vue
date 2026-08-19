@@ -9,6 +9,7 @@ const settings = useSettingsStore()
 const value = computed({ get: () => props.modelValue, set: (next) => emit('update:modelValue', next) })
 const modelDraft = ref(props.model)
 const modelEditing = ref(false)
+const modelOptions = computed(() => settings.settings.models?.length ? settings.settings.models : (props.model ? [props.model] : []))
 const mode = ref<ComposerMode>('coding')
 const canSubmit = computed(() => !!value.value.trim() && !props.running)
 const attachmentHint = ref(false)
@@ -31,7 +32,8 @@ async function paste(event: ClipboardEvent) {
 }
 function toDataUrl(file: File) { return new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file) }) }
 function removeAttachment(id: string) { emit('update:attachments', (props.attachments || []).filter((item) => item.id !== id)) }
-function saveModel() { const next = modelDraft.value.trim(); if (next) { settings.settings.model = next; settings.persist() }; modelEditing.value = false }
+function saveModel() { const next = modelDraft.value.trim(); if (next) { settings.settings.model = next; settings.settings.models = Array.from(new Set([...(settings.settings.models || []), next])); settings.persist() }; modelEditing.value = false }
+function selectModel(next: string) { settings.settings.model = next; modelDraft.value = next; settings.persist() }
 </script>
 <template>
   <div class="composer" @paste="paste">
@@ -40,7 +42,7 @@ function saveModel() { const next = modelDraft.value.trim(); if (next) { setting
     <div class="composer-foot">
       <div class="composer-context">
         <span class="composer-chip"><Icon icon="mdi:folder-open-outline" width="15" /> {{ workspaceName }}</span>
-        <el-popover v-model:visible="modelEditing" trigger="click" width="260"><template #reference><button class="composer-chip model-chip" type="button"><Icon icon="mdi:creation-outline" width="15" /> {{ model || '未配置模型' }}</button></template><div class="model-picker"><strong>当前模型</strong><el-input v-model="modelDraft" placeholder="输入真实模型名称" @keyup.enter="saveModel" /><el-button type="primary" size="small" @click="saveModel">应用</el-button></div></el-popover>
+        <el-popover v-model:visible="modelEditing" trigger="click" width="280"><template #reference><button class="composer-chip model-chip" type="button"><Icon icon="mdi:creation-outline" width="15" /> {{ model || '未配置模型' }}</button></template><div class="model-picker"><strong>选择模型</strong><button v-for="option in modelOptions" :key="option" class="model-option" :class="{ active: option === model }" @click="selectModel(option)">{{ option }}</button><el-input v-model="modelDraft" placeholder="输入新模型名称" @keyup.enter="saveModel" /><el-button type="primary" size="small" @click="saveModel">添加并使用</el-button></div></el-popover>
         <el-select v-model="mode" size="small" class="mode-select"><el-option value="coding" label="编码专用" /><el-option value="thinking" label="极致思考" /><el-option value="security" label="破甲模式（授权安全）" /></el-select>
         <span v-if="hasGithub" class="composer-chip composer-chip--status"><Icon icon="mdi:github" width="15" /> GitHub</span>
         <button class="composer-add" type="button" title="Ctrl+V 粘贴文件或图片" @click="attachmentHint = !attachmentHint"><Icon icon="mdi:paperclip" width="17" /></button>
@@ -57,5 +59,5 @@ function saveModel() { const next = modelDraft.value.trim(); if (next) { setting
 .composer-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 8px 8px 10px; color: var(--text-faint); font-size: 11px; }
 .composer-context, .composer-actions { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .composer-chip, .composer-add { display: inline-flex; align-items: center; gap: 5px; max-width: 190px; padding: 4px 7px; overflow: hidden; border: 0; border-radius: 6px; color: var(--text-secondary); background: transparent; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.composer-chip--status { color: #2d9560; }.model-chip { cursor: pointer; }.composer-add { cursor: pointer; }.composer-add:hover { color: var(--accent); background: var(--hover-bg); }.model-picker { display:flex; flex-direction:column; gap:9px; }.model-picker strong { font-size:12px; }.composer-hint { position: absolute; bottom: 50px; left: 115px; padding: 7px 9px; border: 1px solid var(--glass-border); border-radius: 7px; color: var(--text-secondary); background: var(--surface-bg); box-shadow: 0 5px 18px rgba(20,24,32,.12); }.attachments { display: flex; gap: 6px; padding: 8px 10px 0; flex-wrap: wrap; }.attachment { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border-radius: 6px; color: var(--text-secondary); background: var(--hover-bg); font-size: 11px; }.attachment button { border: 0; background: transparent; color: inherit; cursor: pointer; }.mode-select { width: 92px; }.shortcut { color: var(--text-faint); }
+.composer-chip--status { color: #2d9560; }.model-chip { cursor: pointer; }.model-option { width:100%; padding:7px 8px; border:0; border-radius:6px; color:var(--text-secondary); background:transparent; text-align:left; cursor:pointer; }.model-option:hover, .model-option.active { color:var(--text-primary); background:var(--selected-bg); }.composer-add { cursor: pointer; }.composer-add:hover { color: var(--accent); background: var(--hover-bg); }.model-picker { display:flex; flex-direction:column; gap:9px; }.model-picker strong { font-size:12px; }.composer-hint { position: absolute; bottom: 50px; left: 115px; padding: 7px 9px; border: 1px solid var(--glass-border); border-radius: 7px; color: var(--text-secondary); background: var(--surface-bg); box-shadow: 0 5px 18px rgba(20,24,32,.12); }.attachments { display: flex; gap: 6px; padding: 8px 10px 0; flex-wrap: wrap; }.attachment { display: inline-flex; align-items: center; gap: 5px; padding: 4px 7px; border-radius: 6px; color: var(--text-secondary); background: var(--hover-bg); font-size: 11px; }.attachment button { border: 0; background: transparent; color: inherit; cursor: pointer; }.mode-select { width: 92px; }.shortcut { color: var(--text-faint); }
 </style>

@@ -15,7 +15,8 @@ function load(): Settings {
 export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<Settings>({
     apiBaseUrl: load().apiBaseUrl || 'https://api.openai.com/v1',
-    model: load().model || ''
+    model: load().model || '',
+    models: Array.isArray(load().models) ? load().models : (load().model ? [load().model] : [])
   })
   const hasAiKey = ref(false)
   const hasGithubToken = ref(false)
@@ -47,7 +48,7 @@ export const useSettingsStore = defineStore('settings', () => {
   function persist() {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ apiBaseUrl: settings.value.apiBaseUrl, model: settings.value.model })
+      JSON.stringify({ apiBaseUrl: settings.value.apiBaseUrl, model: settings.value.model, models: settings.value.models || [] })
     )
   }
 
