@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import type { ComposerAttachment, ComposerMode } from '@/types'
 import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import EmptyState from '@/components/EmptyState.vue'
+import SkeletonCard from '@/components/SkeletonCard.vue'
 import MarkdownView from '@/components/MarkdownView.vue'
 import TurnTimeline from '@/components/TurnTimeline.vue'
 import RightPanel from '@/components/RightPanel.vue'
@@ -19,6 +21,8 @@ const listRef = ref<HTMLElement | null>(null)
 const rightOpen = ref(true)
 const editingMessageId = ref<string | null>(null)
 const editingText = ref('')
+const attachments = ref<ComposerAttachment[]>([])
+const composerMode = ref<ComposerMode>('coding')
 
 const activeConversation = computed(() => chat.current())
 const activeWorkspaceName = computed(() => chat.workspace?.split(/[\\/]/).filter(Boolean).pop() || '未选择工作区')
@@ -33,11 +37,12 @@ function scrollDown(force = false) {
   nextTick(() => listRef.value?.scrollTo({ top: listRef.value!.scrollHeight, behavior: 'smooth' }))
 }
 
-async function send() {
+async function send(payload?: { attachments: ComposerAttachment[]; mode: ComposerMode }) {
   const text = input.value.trim()
   if (!text || chat.running) return
   input.value = ''
-  await chat.sendPrompt(text)
+  await chat.sendPrompt(text, { attachments: payload?.attachments || attachments.value, mode: payload?.mode || composerMode.value })
+  attachments.value = []
   scrollDown(true)
 }
 
@@ -98,6 +103,7 @@ watch(
             <div v-if="message.role === 'user'" class="user-message-wrap">
               <div v-if="editingMessageId !== message.id" class="user-message" @dblclick="startEdit(message.id, message.content)">
                 <span>{{ message.content }}</span>
+                <div v-if="message.attachments?.length" class="message-attachments"><span v-for="attachment in message.attachments" :key="attachment.id" class="message-attachment"><Icon :icon="attachment.kind === 'image' ? 'mdi:image-outline' : 'mdi:file-outline'" width="14" />{{ attachment.name }}</span></div>
                 <button v-if="!chat.running" class="edit-message" title="编辑消息" @click="startEdit(message.id, message.content)">
                   <Icon icon="mdi:pencil-outline" width="14" />
                 </button>
@@ -117,6 +123,7 @@ watch(
             </div>
           </article>
         </div>
+        <SkeletonCard v-else-if="!chat.hydrated" :rows="5" avatar />
         <EmptyState
           v-else
           title="从一个任务开始"
@@ -125,7 +132,7 @@ watch(
       </div>
 
       <footer class="composer-wrap">
-        <ChatComposer v-model="input" :running="chat.running" :workspace-name="chat.workspace ? activeWorkspaceName : '普通对话'" :model="settings.settings.model" :has-github="settings.hasGithubToken" @submit="send" @stop="chat.stop" />
+        <ChatComposer v-model="input" :attachments="attachments" :running="chat.running" :workspace-name="chat.workspace ? activeWorkspaceName : '普通对话'" :model="settings.settings.model" :has-github="settings.hasGithubToken" @update:attachments="attachments = $event" @submit="send" @stop="chat.stop" />
       </footer>
     </section>
 
@@ -156,7 +163,7 @@ watch(
 .message { display: flex; min-width: 0; margin-bottom: 24px; animation: message-enter 200ms ease-out both; }
 .message--user { justify-content: flex-end; }
 .user-message-wrap { max-width: min(720px, 86%); }
-.user-message { display: flex; align-items: flex-start; gap: 10px; padding: 11px 13px; border-radius: 10px; color: var(--text-primary); background: var(--selected-bg); white-space: pre-wrap; line-height: 1.6; }
+.user-message { display: flex; align-items: flex-start; gap: 10px; padding: 11px 13px; border-radius: 10px; color: var(--text-primary); background: var(--selected-bg); white-space: pre-wrap; line-height: 1.6; flex-wrap: wrap; }.message-attachments { display:flex; width:100%; gap:5px; flex-wrap:wrap; }.message-attachment { display:inline-flex; align-items:center; gap:4px; padding:3px 6px; border-radius:5px; color:var(--text-secondary); background:var(--surface-bg); font-size:11px; }
 .edit-message { flex: 0 0 auto; display: grid; place-items: center; width: 24px; height: 24px; margin: -3px -5px 0 0; border: 0; border-radius: 5px; color: var(--text-secondary); background: transparent; cursor: pointer; opacity: 0; }
 .user-message:hover .edit-message { opacity: 1; }
 .edit-message:hover { color: var(--accent); background: var(--hover-bg); }

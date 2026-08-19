@@ -1,8 +1,12 @@
 import type { AssistantTurnEvent, AssistantTurnEventInput, Settings, StreamStatusEvent } from '@/types'
 
+export type ChatContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
+
 export interface ChatMsg {
   role: 'system' | 'user' | 'assistant' | 'tool'
-  content?: string | null
+  content?: string | ChatContentPart[] | null
   tool_calls?: ProviderToolCall[]
   tool_call_id?: string
   name?: string

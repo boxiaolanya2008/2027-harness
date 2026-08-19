@@ -24,6 +24,8 @@ export interface WriteContext {
 
 // All file operations are confined to the workspace to prevent traversal.
 export function confine(workspace: string, rel: string): string {
+  if (typeof workspace !== 'string' || !workspace.trim()) throw new Error('Workspace path is required')
+  if (typeof rel !== 'string' || !rel.trim()) throw new Error('File path is required')
   const root = resolve(workspace)
   const target = resolve(root, rel)
   if (target !== root && !target.startsWith(root + sep)) {
@@ -58,31 +60,66 @@ export async function readFileIn(workspace: string, rel: string): Promise<string
   return readFile(confine(workspace, rel), 'utf-8')
 }
 
-export function writeFileIn(
-  workspace: string,
-  rel: string,
-  content: string
-): Promise<FileChangeSnapshot> {
-  const target = confine(workspace, rel)
+function queueWrite<T>(target: string, operation: () => Promise<T>): Promise<T> {
   const previous = writeQueues.get(target) || Promise.resolve()
-  const current = previous.then(async () => {
-    const before = await readState(target)
-    await mkdir(resolve(target, '..'), { recursive: true })
-    await writeFile(target, content, 'utf-8')
-    const after = await readState(target)
-    return {
-      path: relative(resolve(workspace), target).split(sep).join('/'),
-      operation: before.exists ? 'modify' : 'create',
-      before,
-      after
-    } satisfies FileChangeSnapshot
-  })
+  const current = previous.then(operation)
   const settled = current.then(() => undefined, () => undefined)
   writeQueues.set(target, settled)
   void settled.then(() => {
     if (writeQueues.get(target) === settled) writeQueues.delete(target)
   })
   return current
+}
+
+function snapshotFor(workspace: string, target: string, before: FileState, after: FileState): FileChangeSnapshot {
+  return {
+    path: relative(resolve(workspace), target).split(sep).join('/'),
+    operation: before.exists ? 'modify' : 'create',
+    before,
+    after
+  }
+}
+
+export function writeFileIn(workspace: string, rel: string, content: string): Promise<FileChangeSnapshot> {
+  if (typeof content !== 'string') throw new Error('File content must be a string')
+  const target = confine(workspace, rel)
+  return queueWrite(target, async () => {
+    const before = await readState(target)
+    await mkdir(resolve(target, '..'), { recursive: true })
+    await writeFile(target, content, 'utf-8')
+    return snapshotFor(workspace, target, before, await readState(target))
+  })
+}
+
+export function incrementallyEditFileIn(
+  workspace: string,
+  rel: string,
+  oldString: string,
+  newString: string,
+  replaceAll = false
+): Promise<FileChangeSnapshot> {
+  if (typeof oldString !== 'string' || !oldString) throw new Error('old_string must be a non-empty string')
+  if (typeof newString !== 'string') throw new Error('new_string must be a string')
+  if (typeof replaceAll !== 'boolean') throw new Error('replace_all must be a boolean')
+
+  const target = confine(workspace, rel)
+  return queueWrite(target, async () => {
+    const before = await readState(target)
+    if (!before.exists || before.content === null) throw new Error(`File not found: ${rel}`)
+
+    const firstMatch = before.content.indexOf(oldString)
+    if (firstMatch < 0) throw new Error('old_string was not found in the current file')
+    const secondMatch = before.content.indexOf(oldString, firstMatch + oldString.length)
+    if (!replaceAll && secondMatch >= 0) {
+      throw new Error('old_string matched multiple locations; provide more context or set replace_all to true')
+    }
+
+    const content = replaceAll
+      ? before.content.split(oldString).join(newString)
+      : `${before.content.slice(0, firstMatch)}${newString}${before.content.slice(firstMatch + oldString.length)}`
+    await writeFile(target, content, 'utf-8')
+    return snapshotFor(workspace, target, before, await readState(target))
+  })
 }
 
 export async function snapshotWorkspace(workspace: string): Promise<Map<string, FileState>> {

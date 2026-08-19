@@ -27,6 +27,10 @@ import paletteOutline from '@iconify-icons/mdi/palette-outline'
 import tuneVariant from '@iconify-icons/mdi/tune-variant'
 import creationOutline from '@iconify-icons/mdi/creation-outline'
 import arrowUp from '@iconify-icons/mdi/arrow-up'
+import paperclip from '@iconify-icons/mdi/paperclip'
+import imageOutline from '@iconify-icons/mdi/image-outline'
+import fileOutline from '@iconify-icons/mdi/file-outline'
+import sourceRepository from '@iconify-icons/mdi/source-repository'
 import chevronRight from '@iconify-icons/mdi/chevron-right'
 import alertCircleOutline from '@iconify-icons/mdi/alert-circle-outline'
 import headSnowflakeOutline from '@iconify-icons/mdi/head-snowflake-outline'
@@ -61,6 +65,10 @@ addIcon('mdi:palette-outline', paletteOutline)
 addIcon('mdi:tune-variant', tuneVariant)
 addIcon('mdi:creation-outline', creationOutline)
 addIcon('mdi:arrow-up', arrowUp)
+addIcon('mdi:paperclip', paperclip)
+addIcon('mdi:image-outline', imageOutline)
+addIcon('mdi:file-outline', fileOutline)
+addIcon('mdi:source-repository', sourceRepository)
 addIcon('mdi:chevron-right', chevronRight)
 addIcon('mdi:alert-circle-outline', alertCircleOutline)
 addIcon('mdi:head-snowflake-outline', headSnowflakeOutline)

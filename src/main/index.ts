@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'node:path'
 import { getSecret, setSecret } from './security'
 import { runGit, runGitStreaming } from './ipc/git'
-import { readFileIn, writeFileIn, listDir, snapshotWorkspace, type FileState } from './ipc/fs'
+import { incrementallyEditFileIn, readFileIn, writeFileIn, listDir, snapshotWorkspace, type FileState } from './ipc/fs'
 import { runCommand } from './ipc/shell'
 import { gh, ghPaginate } from './ipc/github'
 import { StateRepository } from './state/repository'
@@ -72,6 +72,60 @@ function registerIpc() {
   ipcMain.handle('git:diff', (_e, cwd: string) => runGit(['diff'], cwd))
   ipcMain.handle('git:branch', (_e, cwd: string) => runGit(['branch', '--show-current'], cwd))
   ipcMain.handle('git:remote', (_e, cwd: string) => runGit(['remote', 'get-url', 'origin'], cwd).catch(() => ''))
+  ipcMain.handle('git:timeline', async (_e, cwd: string) => {
+    const isRepo = await runGit(['rev-parse', '--is-inside-work-tree'], cwd)
+      .then((value) => value === 'true')
+      .catch(() => false)
+    if (!isRepo) return { isRepo: false, branch: '', remote: '', commits: [] }
+
+    const [branch, remote, rawLog] = await Promise.all([
+      runGit(['branch', '--show-current'], cwd).catch(() => ''),
+      runGit(['remote', 'get-url', 'origin'], cwd).catch(() => ''),
+      runGit(['log', '-n', '50', '--format=%H%x1f%an%x1f%ae%x1f%aI%x1f%s%x1e'], cwd).catch(() => '')
+    ])
+    const commits = rawLog.split('\\x1e').filter(Boolean).map((record) => {
+      const [sha, author, email, date, subject] = record.split('\\x1f')
+      return { sha, author, email, date, subject }
+    }).filter((commit) => commit.sha && commit.date)
+    return { isRepo: true, branch, remote, commits }
+  })
+  ipcMain.handle('git:init', async (_e, cwd: string) => {
+    await runGit(['init'], cwd)
+    await runGit(['branch', '-M', 'main'], cwd)
+    return true
+  })
+  ipcMain.handle('git:publish', async (_e, cwd: string, repoName: string) => {
+    const name = String(repoName || '').trim()
+    if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(name)) {
+      throw new Error('请输入有效的 GitHub 仓库名（仅支持字母、数字、点、下划线和短横线）')
+    }
+    const token = getSecret('githubToken')
+    if (!token) throw new Error('未配置 GitHub token，请先到设置页面连接 GitHub')
+
+    const isRepo = await runGit(['rev-parse', '--is-inside-work-tree'], cwd)
+      .then((value) => value === 'true')
+      .catch(() => false)
+    if (!isRepo) {
+      await runGit(['init'], cwd)
+      await runGit(['branch', '-M', 'main'], cwd)
+    }
+    const existingRemote = await runGit(['remote', 'get-url', 'origin'], cwd).catch(() => '')
+    if (existingRemote) throw new Error('此工作区已有 origin 远程仓库')
+    const branch = (await runGit(['branch', '--show-current'], cwd).catch(() => '')) || 'main'
+    await runGit(['add', '-A'], cwd)
+    await runGit(['commit', '-m', 'Initial commit'], cwd)
+
+    // Create the remote before pushing; pushing never uses --force.
+    const created = await gh('/user/repos', {
+      method: 'POST',
+      body: JSON.stringify({ name, private: false, auto_init: false })
+    })
+    const remoteUrl = created?.clone_url || created?.html_url
+    if (!remoteUrl) throw new Error('GitHub 未返回可用的远程地址')
+    await runGit(['remote', 'add', 'origin', remoteUrl], cwd)
+    await runGit(['-c', `http.extraheader=AUTHORIZATION: bearer ${token}`, 'push', '-u', 'origin', branch], cwd)
+    return { name: created.name || name, full_name: created.full_name || name, html_url: created.html_url || '' }
+  })
   ipcMain.handle('git:commitAll', async (_e, cwd: string, message: string) => {
     await runGit(['add', '-A'], cwd)
     await runGit(['commit', '-m', message], cwd)
@@ -91,6 +145,15 @@ function registerIpc() {
     if (context !== undefined) await changes.record(context, workspace, snapshot)
     return snapshot
   })
+  ipcMain.handle(
+    'fs:incrementallyEdit',
+    async (_e, workspace: string, rel: string, oldString: string, newString: string, replaceAll?: boolean, context?: unknown) => {
+      if (context !== undefined && parseWriteContext(context) === null) throw new Error('Invalid write context')
+      const snapshot = await incrementallyEditFileIn(workspace, rel, oldString, newString, replaceAll)
+      if (context !== undefined) await changes.record(context, workspace, snapshot)
+      return snapshot
+    }
+  )
   ipcMain.handle('fs:list', (_e, workspace: string, rel?: string) => listDir(workspace, rel || '.'))
 
   ipcMain.handle('changes:list', (_e, filter?: unknown) => changes.listChanges(filter))

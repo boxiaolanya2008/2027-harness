@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import FileDiffView from './FileDiffView.vue'
 import { getDiffStats } from '@/utils/fileDiff'
-import type { ToolCall, WriteFilePreview } from '@/types'
+import type { FileEditPreview, ToolCall } from '@/types'
 
 interface FileSnapshot {
   before: string | null
@@ -16,10 +16,11 @@ const props = withDefaults(defineProps<{
   call: ToolCall
   rawArgs?: string
   result?: string
-  writePreview?: WriteFilePreview
+  fileEditPreview?: FileEditPreview
 }>(), {
   rawArgs: undefined,
-  result: undefined
+  result: undefined,
+  fileEditPreview: undefined
 })
 
 const open = ref(false)
@@ -35,7 +36,9 @@ const output = computed(() => props.result ?? props.call.result)
 const state = computed(() => props.call.status || 'running')
 const stateLabel = computed(() => ({ running: '运行中', done: '已完成', error: '失败' }[state.value] || state.value))
 const stateIcon = computed(() => ({ running: 'mdi:loading', done: 'mdi:check-circle', error: 'mdi:alert-circle' }[state.value] || 'mdi:tools'))
+const isFileEdit = computed(() => ['write_file', 'incrementally_edit'].includes(props.call.name))
 const filePath = computed(() => typeof props.call.args?.path === 'string' ? props.call.args.path : '')
+const showResult = computed(() => props.call.name === 'run_command' || state.value === 'error')
 
 function asText(value: unknown): string | null {
   return typeof value === 'string' ? value : value == null ? null : String(value)
@@ -91,13 +94,13 @@ function parseSnapshot(raw: string | undefined): FileSnapshot | undefined {
 }
 
 const diffSnapshot = computed(() => {
-  if (props.call.name !== 'write_file') return undefined
+  if (!isFileEdit.value) return undefined
   const snapshot = parseSnapshot(output.value)
   if (snapshot) {
     const content = asText(props.call.args?.content)
     return { ...snapshot, path: snapshot.path || filePath.value, after: snapshot.after ?? content, preview: false }
   }
-  const preview = props.writePreview
+  const preview = props.fileEditPreview
   if (!preview || preview.before.state === 'unknown') return undefined
   return {
     path: preview.path || filePath.value,
@@ -107,6 +110,7 @@ const diffSnapshot = computed(() => {
     preview: true
   }
 })
+const fileContent = computed(() => diffSnapshot.value?.after)
 const diffStats = computed(() => diffSnapshot.value
   ? getDiffStats(diffSnapshot.value.before, diffSnapshot.value.after)
   : undefined)
@@ -118,19 +122,19 @@ const diffStats = computed(() => diffSnapshot.value
       <Icon class="tool-chevron" :class="{ 'tool-chevron--open': open }" icon="mdi:chevron-right" width="16" />
       <Icon class="tool-icon" :class="{ 'tool-icon--spinning': state === 'running' }" :icon="stateIcon" width="16" />
       <code class="tool-name">{{ call.name || 'unknown_tool' }}</code>
-      <code v-if="call.name === 'write_file' && filePath" class="tool-path">{{ filePath }}</code>
+      <code v-if="isFileEdit && filePath" class="tool-path">{{ filePath }}</code>
       <span class="tool-state">{{ diffSnapshot?.preview && state === 'running' ? '准备写入' : stateLabel }}</span>
       <span v-if="diffStats" class="tool-diff-summary">+{{ diffStats.additions }} −{{ diffStats.deletions }}</span>
     </button>
 
     <div v-if="open" class="tool-detail">
-      <section class="tool-detail-section">
+      <section v-if="!isFileEdit" class="tool-detail-section">
         <span class="tool-detail-label">参数</span>
         <pre class="tool-code">{{ rawArguments }}</pre>
       </section>
-      <section v-if="output !== undefined" class="tool-detail-section">
-        <span class="tool-detail-label">{{ state === 'error' ? '错误详情' : '工具结果' }}</span>
-        <pre class="tool-code tool-result">{{ output }}</pre>
+      <section v-if="isFileEdit && fileContent !== undefined" class="tool-detail-section">
+        <span class="tool-detail-label">文件内容</span>
+        <pre class="tool-code tool-result">{{ fileContent }}</pre>
       </section>
       <section v-if="diffSnapshot" class="tool-detail-section">
         <span class="tool-detail-label">Diff</span>
@@ -140,6 +144,10 @@ const diffStats = computed(() => diffSnapshot.value
           :path="diffSnapshot.path"
           :operation="diffSnapshot.operation"
         />
+      </section>
+      <section v-if="showResult && output !== undefined" class="tool-detail-section">
+        <span class="tool-detail-label">{{ state === 'error' ? '错误详情' : '工具结果' }}</span>
+        <pre class="tool-code tool-result">{{ output }}</pre>
       </section>
     </div>
   </article>

@@ -1,3 +1,14 @@
+export type ComposerMode = 'coding' | 'thinking' | 'security'
+export interface ComposerAttachment {
+  id: string
+  name: string
+  kind: 'image' | 'text' | 'file'
+  mime: string
+  size: number
+  data?: string
+  content?: string
+}
+
 export interface Settings {
   apiBaseUrl: string
   model: string
@@ -30,13 +41,16 @@ export interface ReasoningEvent extends TurnEventBase {
   text: string
 }
 
-export interface WriteFilePreview {
+export interface FileEditPreview {
   path: string
   // Real state read before the write; proposedContent is never a committed after snapshot.
   before: { state: 'present' | 'missing' | 'unknown'; content: string | null; error?: string }
   proposedContent: string
   operation: 'modify' | 'create' | 'unknown'
 }
+
+// Retained for existing write-file callers.
+export type WriteFilePreview = FileEditPreview
 
 export interface ToolCallEvent extends TurnEventBase {
   type: 'tool_call'
@@ -51,6 +65,8 @@ export interface ToolCallEvent extends TurnEventBase {
   rawArgs: string
   args?: Record<string, unknown>
   error?: string
+  fileEditPreview?: FileEditPreview
+  // Deprecated event property retained for persisted turns created before fileEditPreview.
   writePreview?: WriteFilePreview
 }
 
@@ -106,6 +122,7 @@ export interface Message {
   toolCalls?: ToolCall[]
   protocolUserIndex?: number
   turnId?: string
+  attachments?: ComposerAttachment[]
   createdAt: number
 }
 
@@ -117,7 +134,7 @@ export interface ProviderHistoryToolCall {
 
 export interface ProviderHistoryMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
-  content?: string | null
+  content?: string | import('@/api/openai').ChatContentPart[] | null
   tool_calls?: ProviderHistoryToolCall[]
   tool_call_id?: string
   name?: string

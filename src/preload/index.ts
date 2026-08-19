@@ -149,6 +149,9 @@ const api = {
     diff: (cwd: string) => ipcRenderer.invoke('git:diff', cwd),
     branch: (cwd: string) => ipcRenderer.invoke('git:branch', cwd),
     remote: (cwd: string) => ipcRenderer.invoke('git:remote', cwd),
+    timeline: (cwd: string) => ipcRenderer.invoke('git:timeline', cwd),
+    init: (cwd: string) => ipcRenderer.invoke('git:init', cwd),
+    publish: (cwd: string, repoName: string) => ipcRenderer.invoke('git:publish', cwd, repoName),
     commitAll: (cwd: string, message: string) => ipcRenderer.invoke('git:commitAll', cwd, message),
     newBranch: (cwd: string, branch: string) => ipcRenderer.invoke('git:newBranch', cwd, branch),
     push: (cwd: string, branch: string) => ipcRenderer.invoke('git:push', cwd, branch)
@@ -161,6 +164,16 @@ const api = {
       content: string,
       context?: ChangeContext
     ): Promise<FileChangeSnapshot> => ipcRenderer.invoke('fs:write', workspace, rel, content, context),
+    incrementallyEdit: (
+      workspace: string,
+      rel: string,
+      oldString: string,
+      newString: string,
+      replaceAll?: boolean,
+      context?: ChangeContext
+    ): Promise<FileChangeSnapshot> => ipcRenderer.invoke(
+      'fs:incrementallyEdit', workspace, rel, oldString, newString, replaceAll, context
+    ),
     list: (workspace: string, rel?: string) => ipcRenderer.invoke('fs:list', workspace, rel)
   },
   changes: {

@@ -2,7 +2,8 @@ import type { ToolDef } from './openai'
 
 export const TOOLS: ToolDef[] = [
   { type: 'function', function: { name: 'read_file', description: '读取工作区内某个文件的文本内容。path 为相对路径。', parameters: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } } },
-  { type: 'function', function: { name: 'write_file', description: '写入/覆盖工作区内某个文件。path 为相对路径，content 为完整新内容。', parameters: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path', 'content'] } } },
+  { type: 'function', function: { name: 'write_file', description: '写入/覆盖工作区内某个文件。path 为相对路径，content 为完整新内容。适合新建文件或整体重写。', parameters: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path', 'content'] } } },
+  { type: 'function', function: { name: 'incrementally_edit', description: '精确替换工作区内文件的一段已有文本。适合局部修复：old_string 必须匹配当前内容且默认只能匹配一处；多处替换时显式设置 replace_all。', parameters: { type: 'object', properties: { path: { type: 'string' }, old_string: { type: 'string' }, new_string: { type: 'string' }, replace_all: { type: 'boolean' } }, required: ['path', 'old_string', 'new_string'] } } },
   { type: 'function', function: { name: 'list_dir', description: '列出工作区内某个目录下的条目。path 省略则列根目录。', parameters: { type: 'object', properties: { path: { type: 'string' } } } } },
   { type: 'function', function: { name: 'run_command', description: '在工作区目录下执行 shell 命令（如 npm test、python x.py）。command 为完整命令字符串。输出会作为结果返回。', parameters: { type: 'object', properties: { command: { type: 'string' } }, required: ['command'] } } },
   { type: 'function', function: { name: 'git_status', description: '查看工作区 git 状态（未提交改动）。', parameters: { type: 'object', properties: {} } } },
@@ -16,7 +17,7 @@ export const SYSTEM = `你是 Super-Agent，一个能直接操作本地代码仓
 你有一个工作区目录，可以读文件、写文件、列目录、跑命令、做 git 操作。
 规则：
 - 动手前先想清楚，需要看代码就先 read_file / list_dir。
-- 修改代码用 write_file，改完尽量跑命令验证（如 npm test）。
+- 新建文件或整体重写用 write_file；局部 bug 修复优先用 incrementally_edit，old_string 要提供足够上下文确保唯一匹配。改完尽量跑命令验证（如 npm test）。
 - git_commit / git_new_branch / git_push 只在用户明确要求时才调用。
 - 用中文回答，简洁直接，给结论再给细节。`
 
@@ -29,9 +30,21 @@ export async function execTool(
   switch (name) {
     case 'read_file':
       return await window.api.fs.read(workspace, args.path)
-    case 'write_file':
+    case 'write_file': {
       const snapshot = await window.api.fs.write(workspace, args.path, args.content, context)
       return JSON.stringify({ type: 'file_snapshot', ...snapshot })
+    }
+    case 'incrementally_edit': {
+      const snapshot = await window.api.fs.incrementallyEdit(
+        workspace,
+        args.path,
+        args.old_string,
+        args.new_string,
+        args.replace_all,
+        context
+      )
+      return JSON.stringify({ type: 'file_snapshot', ...snapshot })
+    }
     case 'list_dir': {
       const items = await window.api.fs.list(workspace, args.path || '.')
       return items.map((i: { type: string; path: string }) => `${i.type === 'dir' ? '[d]' : '[f]'} ${i.path}`).join('\n')

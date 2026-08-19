@@ -1,6 +1,6 @@
-import { streamTurn, type ChatMsg, type ProviderToolCall } from './openai'
+import { streamTurn, type ChatMsg, type ProviderToolCall, type ChatContentPart } from './openai'
 import { TOOLS, SYSTEM, execTool } from './agent-tools'
-import type { AssistantTurnEvent, AssistantTurnEventInput, Settings, StreamState, WriteFilePreview } from '@/types'
+import type { AssistantTurnEvent, AssistantTurnEventInput, FileEditPreview, Settings, StreamState } from '@/types'
 
 // The agent consumes and emits the same ordered turn event protocol as the provider stream.
 export type AgentEvent = AssistantTurnEvent
@@ -21,31 +21,54 @@ function isMissingFileError(error: unknown) {
   return /\bENOENT\b|no such file/i.test(message)
 }
 
-// This read occurs immediately before write execution and never fabricates an after state.
-async function preflightWritePreview(workspace: string, args: Record<string, unknown>): Promise<WriteFilePreview | undefined> {
-  if (typeof args.path !== 'string' || typeof args.content !== 'string') return undefined
+// This read occurs immediately before file mutation and never fabricates an after state.
+async function preflightFileEditPreview(
+  workspace: string,
+  name: string,
+  args: Record<string, unknown>
+): Promise<FileEditPreview | undefined> {
+  if (typeof args.path !== 'string') return undefined
+  const isWrite = name === 'write_file'
+  const isIncrementalEdit = name === 'incrementally_edit'
+  if (!isWrite && !isIncrementalEdit) return undefined
+  if (isWrite && typeof args.content !== 'string') return undefined
+  if (isIncrementalEdit && (typeof args.old_string !== 'string' || typeof args.new_string !== 'string')) return undefined
 
   try {
-    const before = await window.api.fs.read(workspace, args.path)
+    const beforeContent = await window.api.fs.read(workspace, args.path)
+    let proposedContent: string
+    if (isWrite) {
+      proposedContent = args.content as string
+    } else {
+      const oldString = args.old_string as string
+      const newString = args.new_string as string
+      const firstMatch = beforeContent.indexOf(oldString)
+      const secondMatch = beforeContent.indexOf(oldString, firstMatch + oldString.length)
+      // Do not show a proposed state the main process will reject.
+      if (firstMatch < 0 || (args.replace_all !== true && secondMatch >= 0)) return undefined
+      proposedContent = args.replace_all === true
+        ? beforeContent.split(oldString).join(newString)
+        : `${beforeContent.slice(0, firstMatch)}${newString}${beforeContent.slice(firstMatch + oldString.length)}`
+    }
     return {
       path: args.path,
-      before: { state: 'present', content: before },
-      proposedContent: args.content,
+      before: { state: 'present', content: beforeContent },
+      proposedContent,
       operation: 'modify'
     }
   } catch (error) {
-    if (isMissingFileError(error)) {
+    if (isWrite && isMissingFileError(error)) {
       return {
         path: args.path,
         before: { state: 'missing', content: null },
-        proposedContent: args.content,
+        proposedContent: args.content as string,
         operation: 'create'
       }
     }
     return {
       path: args.path,
       before: { state: 'unknown', content: null, error: (error as Error).message || String(error) },
-      proposedContent: args.content,
+      proposedContent: '',
       operation: 'unknown'
     }
   }
@@ -71,14 +94,14 @@ function writeChanged(content: string) {
 
 function changedState(name: string, content: string, failed: boolean) {
   if (failed) return false
-  if (name === 'write_file') return writeChanged(content)
+  if (name === 'write_file' || name === 'incrementally_edit') return writeChanged(content)
   // These tools only report success after their external state-changing operation completes.
   return name === 'git_commit' || name === 'git_new_branch' || name === 'git_push'
 }
 
 export async function runAgent(
   settingsStore: { settings: Settings },
-  taskPrompt: string,
+  taskPrompt: string | ChatContentPart[],
   workspace: string,
   onEvent: (event: AgentEvent) => void,
   signal?: AbortSignal,
@@ -210,9 +233,9 @@ export async function runAgent(
 
       const name = call.name || ''
       const protocolCallId = call.providerCallId || call.callId
-      if (name === 'write_file' && call.args) {
-        const writePreview = await preflightWritePreview(workspace, call.args)
-        if (writePreview) emit({ ...call, writePreview })
+      if (call.args) {
+        const fileEditPreview = await preflightFileEditPreview(workspace, name, call.args)
+        if (fileEditPreview) emit({ ...call, fileEditPreview })
       }
       if (aborted(signal)) return completeInterruptedBatch('aborted', 'Agent 已取消，工具未执行')
       emit({

@@ -2,6 +2,8 @@
 import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
 import EmptyState from '@/components/EmptyState.vue'
+import SkeletonCard from '@/components/SkeletonCard.vue'
+import GitTimelinePanel from '@/components/GitTimelinePanel.vue'
 import { useChatStore } from '@/stores/chat'
 import type { Conversation, Project } from '@/types'
 
@@ -52,12 +54,14 @@ function formatConversationTime(conversation: Conversation) {
         <span class="workspace-heading-copy"><strong>{{ workspaceName }}</strong><small>{{ chat.workspace || '选择本地目录开始任务' }}</small></span>
         <Icon class="workspace-heading-action" icon="mdi:chevron-right" width="16" />
       </button>
-      <div class="workspace-list" aria-label="最近工作区">
+      <SkeletonCard v-if="!chat.hydrated" :rows="3" />
+      <div v-else class="workspace-list" aria-label="最近工作区">
         <button v-for="path in chat.workspaces" :key="path" class="workspace-row" :class="{ active: path === chat.workspace }" :title="path" @click="chat.selectWorkspace(path)">
           <Icon icon="mdi:folder-open-outline" width="16" /><span>{{ path.split(/[\\/]/).filter(Boolean).pop() }}</span>
         </button>
         <button v-if="!chat.workspaces.length" class="workspace-empty" @click="pickWorkspace"><Icon icon="mdi:folder-plus-outline" width="16" /> 选择本地目录</button>
       </div>
+      <GitTimelinePanel v-if="chat.workspace" />
     </div>
 
     <section class="conversation-section">
