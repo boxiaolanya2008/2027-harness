@@ -11,6 +11,7 @@ import { useGithubStore } from '@/stores/github'
 import { useSettingsStore } from '@/stores/settings'
 import { chatOnce } from '@/api/openai'
 import SessionChangesPanel from './SessionChangesPanel.vue'
+import GitTimelinePanel from './GitTimelinePanel.vue'
 
 const chat = useChatStore()
 const github = useGithubStore()
@@ -99,6 +100,7 @@ async function oneClickPr() {
 
     <el-tabs v-model="tab" class="detail-tabs" stretch>
       <el-tab-pane label="GitHub" name="github">
+        <GitTimelinePanel v-if="chat.workspace" />
         <template v-if="settings.hasGithubToken">
           <div class="repo-picker">
             <el-select v-model="github.currentRepo" value-key="id" placeholder="选择仓库" filterable @change="selectRepo">

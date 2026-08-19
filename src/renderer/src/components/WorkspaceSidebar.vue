@@ -3,7 +3,6 @@ import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
-import GitTimelinePanel from '@/components/GitTimelinePanel.vue'
 import { useChatStore } from '@/stores/chat'
 import type { Conversation, Project } from '@/types'
 
@@ -61,7 +60,6 @@ function formatConversationTime(conversation: Conversation) {
         </button>
         <button v-if="!chat.workspaces.length" class="workspace-empty" @click="pickWorkspace"><Icon icon="mdi:folder-plus-outline" width="16" /> 选择本地目录</button>
       </div>
-      <GitTimelinePanel v-if="chat.workspace" />
     </div>
 
     <section class="conversation-section">

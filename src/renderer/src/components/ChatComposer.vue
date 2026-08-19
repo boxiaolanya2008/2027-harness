@@ -7,9 +7,8 @@ const props = defineProps<{ modelValue: string; running: boolean; workspaceName:
 const emit = defineEmits<{ (event: 'update:modelValue', value: string): void; (event: 'submit', payload: { attachments: ComposerAttachment[]; mode: ComposerMode }): void; (event: 'stop'): void; (event: 'update:attachments', value: ComposerAttachment[]): void }>()
 const settings = useSettingsStore()
 const value = computed({ get: () => props.modelValue, set: (next) => emit('update:modelValue', next) })
-const modelDraft = ref(props.model)
-const modelEditing = ref(false)
 const modelOptions = computed(() => settings.settings.models?.length ? settings.settings.models : (props.model ? [props.model] : []))
+const selectedModel = computed({ get: () => settings.settings.model, set: (next: string) => { const value = next.trim(); if (!value) return; settings.settings.model = value; settings.settings.models = Array.from(new Set([...(settings.settings.models || []), value])); settings.persist() } })
 const mode = ref<ComposerMode>('coding')
 const canSubmit = computed(() => !!value.value.trim() && !props.running)
 const attachmentHint = ref(false)
@@ -32,8 +31,6 @@ async function paste(event: ClipboardEvent) {
 }
 function toDataUrl(file: File) { return new Promise<string>((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.onerror = reject; reader.readAsDataURL(file) }) }
 function removeAttachment(id: string) { emit('update:attachments', (props.attachments || []).filter((item) => item.id !== id)) }
-function saveModel() { const next = modelDraft.value.trim(); if (next) { settings.settings.model = next; settings.settings.models = Array.from(new Set([...(settings.settings.models || []), next])); settings.persist() }; modelEditing.value = false }
-function selectModel(next: string) { settings.settings.model = next; modelDraft.value = next; settings.persist() }
 </script>
 <template>
   <div class="composer" @paste="paste">
@@ -42,7 +39,7 @@ function selectModel(next: string) { settings.settings.model = next; modelDraft.
     <div class="composer-foot">
       <div class="composer-context">
         <span class="composer-chip"><Icon icon="mdi:folder-open-outline" width="15" /> {{ workspaceName }}</span>
-        <el-popover v-model:visible="modelEditing" trigger="click" width="280"><template #reference><button class="composer-chip model-chip" type="button"><Icon icon="mdi:creation-outline" width="15" /> {{ model || '未配置模型' }}</button></template><div class="model-picker"><strong>选择模型</strong><button v-for="option in modelOptions" :key="option" class="model-option" :class="{ active: option === model }" @click="selectModel(option)">{{ option }}</button><el-input v-model="modelDraft" placeholder="输入新模型名称" @keyup.enter="saveModel" /><el-button type="primary" size="small" @click="saveModel">添加并使用</el-button></div></el-popover>
+        <el-select v-model="selectedModel" class="mode-select model-select" size="small" filterable allow-create default-first-option placeholder="选择模型"><el-option v-for="option in modelOptions" :key="option" :label="option" :value="option" /></el-select>
         <el-select v-model="mode" size="small" class="mode-select"><el-option value="coding" label="编码专用" /><el-option value="thinking" label="极致思考" /><el-option value="security" label="破甲模式（授权安全）" /></el-select>
         <span v-if="hasGithub" class="composer-chip composer-chip--status"><Icon icon="mdi:github" width="15" /> GitHub</span>
         <button class="composer-add" type="button" title="Ctrl+V 粘贴文件或图片" @click="attachmentHint = !attachmentHint"><Icon icon="mdi:paperclip" width="17" /></button>
