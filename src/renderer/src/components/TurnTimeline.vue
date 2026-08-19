@@ -3,7 +3,7 @@ import { computed } from 'vue'
 import type { AssistantTurnEvent, ToolCall, ToolCallEvent, ToolResultEvent } from '@/types'
 import MarkdownView from './MarkdownView.vue'
 import ThinkingBlock from './ThinkingBlock.vue'
-import ToolCallCard from './ToolCallCard.vue'
+import ToolActivityRow from './ToolActivityRow.vue'
 
 const props = withDefaults(defineProps<{
   events: AssistantTurnEvent[]
@@ -12,22 +12,25 @@ const props = withDefaults(defineProps<{
   streaming: false
 })
 
-const orderedEvents = computed(() => [...props.events].sort((a, b) => a.seq - b.seq))
+// Events arrive in display order; use sequence only as a stable tie-breaker for persisted events.
+const orderedEvents = computed(() => props.events
+  .map((event, index) => ({ event, index }))
+  .sort((a, b) => a.event.seq - b.event.seq || a.index - b.index)
+  .map(({ event }) => event))
 
-function nextResult(event: ToolCallEvent, index: number): ToolResultEvent | undefined {
-  let matched: ToolResultEvent | undefined
-  for (let i = index + 1; i < orderedEvents.value.length; i++) {
-    const candidate = orderedEvents.value[i]
-    if (candidate.type === 'tool_result' && candidate.callId === event.callId) {
-      matched = candidate
-      continue
-    }
-    if (candidate.type === 'tool_call' && candidate.callId !== event.callId) break
+const latestResultsByCallId = computed(() => {
+  const results = new Map<string, ToolResultEvent>()
+  for (const event of orderedEvents.value) {
+    if (event.type === 'tool_result') results.set(event.callId, event)
   }
-  return matched
+  return results
+})
+
+function resultEventFor(event: ToolCallEvent): ToolResultEvent | undefined {
+  return latestResultsByCallId.value.get(event.callId)
 }
 
-function callFor(event: ToolCallEvent, index: number): ToolCall {
+function callFor(event: ToolCallEvent): ToolCall {
   let args: Record<string, unknown> = event.args || {}
   if ((!event.args || !Object.keys(event.args).length) && event.rawArgs) {
     try {
@@ -38,7 +41,7 @@ function callFor(event: ToolCallEvent, index: number): ToolCall {
       args = { _raw: event.rawArgs }
     }
   }
-  const result = nextResult(event, index)
+  const result = resultEventFor(event)
 
   return {
     id: event.callId,
@@ -48,20 +51,17 @@ function callFor(event: ToolCallEvent, index: number): ToolCall {
   }
 }
 
-function resultFor(event: ToolCallEvent, index: number): string | undefined {
-  const result = nextResult(event, index)
-  if (!result) return undefined
-  return result.error ?? result.content
+function resultFor(event: ToolCallEvent): string | undefined {
+  const result = resultEventFor(event)
+  return result?.error ?? result?.content
 }
 
-function isConsumedResult(event: AssistantTurnEvent, index: number) {
-  if (event.type !== 'tool_result') return false
-  for (let i = index - 1; i >= 0; i--) {
-    const previous = orderedEvents.value[i]
-    if (previous.type === 'tool_call' && previous.callId === event.callId) return true
-    if (previous.type === 'tool_result') break
-  }
-  return false
+const callIds = computed(() => new Set(orderedEvents.value
+  .filter((event): event is ToolCallEvent => event.type === 'tool_call')
+  .map((event) => event.callId)))
+
+function isConsumedResult(event: AssistantTurnEvent) {
+  return event.type === 'tool_result' && callIds.value.has(event.callId)
 }
 
 function isLive(event: AssistantTurnEvent, index: number) {
@@ -87,18 +87,19 @@ function isErrorResult(event: ToolResultEvent) {
         :content="event.text"
         :streaming="isLive(event, index)"
       />
-      <ToolCallCard
+      <ToolActivityRow
         v-else-if="event.type === 'tool_call'"
-        :call="callFor(event, index)"
+        :call="callFor(event)"
         :raw-args="event.rawArgs"
-        :result="resultFor(event, index)"
+        :result="resultFor(event)"
+        :write-preview="event.writePreview"
       />
       <div v-else-if="event.type === 'status'" class="turn-status" :class="`turn-status--${event.state}`">
         {{ event.error || (event.state === 'streaming' ? '正在生成' : event.state === 'completed' ? '生成完成' : event.state === 'aborted' ? '已取消' : '生成失败') }}
       </div>
       <div v-else-if="event.type === 'error'" class="turn-status turn-status--failed">{{ event.error }}</div>
       <pre
-        v-else-if="event.type === 'tool_result' && !isConsumedResult(event, index)"
+        v-else-if="event.type === 'tool_result' && !isConsumedResult(event)"
         class="orphan-result"
         :class="{ 'orphan-result--error': isErrorResult(event) }"
       >{{ event.error || event.content }}</pre>

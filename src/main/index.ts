@@ -48,6 +48,9 @@ function registerIpc() {
   ipcMain.handle('conversations:load', (_e, id: unknown) => state.loadConversation(id))
   ipcMain.handle('conversations:save', (_e, conversation: unknown) => state.saveConversation(conversation))
   ipcMain.handle('conversations:remove', (_e, id: unknown) => state.removeConversation(id))
+  ipcMain.handle('projects:list', () => state.listProjects())
+  ipcMain.handle('projects:upsert', (_e, project: unknown) => state.upsertProject(project))
+  ipcMain.handle('projects:archive', (_e, id: unknown) => state.archiveProject(id))
   ipcMain.handle('state:load', () => state.loadUiState())
   ipcMain.handle('state:save', (_e, uiState: unknown) => state.saveUiState(uiState))
 

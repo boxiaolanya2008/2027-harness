@@ -36,12 +36,15 @@ export interface StreamEvent {
 }
 
 interface PendingToolCall {
+  // Renderer/agent correlation ID. It deliberately never falls back to a provider ID.
   callId: string
   providerCallId?: string
   index: number
   name?: string
   rawArgs: string
 }
+
+export type InternalCallIdFactory = (providerCallId: string | undefined, index: number) => string
 
 function makeEvent(seq: number, event: AssistantTurnEventInput): AssistantTurnEvent {
   return { ...event, seq, timestamp: Date.now() } as AssistantTurnEvent
@@ -118,7 +121,8 @@ export async function* streamTurn(
   apiKey: string,
   messages: ChatMsg[],
   tools?: ToolDef[],
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  makeInternalCallId?: InternalCallIdFactory
 ): AsyncGenerator<AssistantTurnEvent> {
   const body: Record<string, unknown> = {
     model: settings.model,
@@ -167,7 +171,10 @@ export async function* streamTurn(
   let finishReason: string | null | undefined
   let usage: StreamStatusEvent['usage']
   let receivedDone = false
+  let generatedCallCount = 0
   const calls = new Map<number, PendingToolCall>()
+  const internalCallId = (providerCallId: string | undefined, index: number) =>
+    makeInternalCallId?.(providerCallId, index) || `turn-call-${++generatedCallCount}`
 
   try {
     for await (const data of sseRecords(res.body)) {
@@ -205,8 +212,8 @@ export async function* streamTurn(
           let call = calls.get(index)
           if (!call) {
             call = {
-              callId: fragment.id || `call_${index}`,
-              providerCallId: fragment.id,
+              callId: internalCallId(typeof fragment.id === 'string' ? fragment.id : undefined, index),
+              providerCallId: typeof fragment.id === 'string' ? fragment.id : undefined,
               index,
               rawArgs: ''
             }
@@ -222,7 +229,7 @@ export async function* streamTurn(
             })
           }
 
-          if (fragment.id && !call.providerCallId) {
+          if (typeof fragment.id === 'string' && !call.providerCallId) {
             call.providerCallId = fragment.id
           }
           if (typeof fragment.function?.name === 'string') call.name = fragment.function.name

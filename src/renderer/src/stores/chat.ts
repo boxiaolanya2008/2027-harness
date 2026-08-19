@@ -8,16 +8,17 @@ import type {
   Conversation,
   Message,
   ProviderHistoryMessage,
-  ToolCall
+  ToolCall,
+  Project
 } from '@/types'
 
 function uid() {
   return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`
 }
 
-function blankConversation(workspace?: string): Conversation {
+function blankConversation(workspace?: string, projectId?: string): Conversation {
   const now = Date.now()
-  return { id: uid(), title: '新对话', messages: [], workspace, createdAt: now, updatedAt: now, protocolHistory: [] }
+  return { id: uid(), title: '新对话', messages: [], workspace, projectId, createdAt: now, updatedAt: now, protocolHistory: [] }
 }
 
 function asConversation(raw: any): Conversation {
@@ -27,6 +28,7 @@ function asConversation(raw: any): Conversation {
     title: String(raw?.title || '新对话'),
     messages: Array.isArray(raw?.messages) ? raw.messages : [],
     workspace: typeof raw?.workspace === 'string' ? raw.workspace : undefined,
+    projectId: typeof raw?.projectId === 'string' ? raw.projectId : undefined,
     protocolHistory: Array.isArray(raw?.protocolHistory) ? raw.protocolHistory : [],
     createdAt: Number(raw?.createdAt) || now,
     updatedAt: Number(raw?.updatedAt) || now
@@ -39,6 +41,9 @@ export const useChatStore = defineStore('chat', () => {
   const running = ref(false)
   const workspace = ref<string | null>(null)
   const workspaces = ref<string[]>([])
+  const projects = ref<Project[]>([])
+  const selectedProjectId = ref<string | null>(null)
+  const expandedProjectIds = ref<string[]>([])
   const rightPanelTab = ref('github')
   const selectedRepoFullName = ref<string | null>(null)
   const hydrated = ref(false)
@@ -66,15 +71,46 @@ export const useChatStore = defineStore('chat', () => {
       recentWorkspaces: workspaces.value,
       currentConversationId: currentId.value,
       rightPanelTab: rightPanelTab.value,
-      repo: selectedRepoFullName.value ? { full_name: selectedRepoFullName.value } : null
+      repo: selectedRepoFullName.value ? { full_name: selectedRepoFullName.value } : null,
+      selectedProjectId: selectedProjectId.value,
+      expandedProjectIds: expandedProjectIds.value
     })
+  }
+
+  function applyActiveConversation(conversation: Conversation | null) {
+    if (!conversation) return
+    const project = conversation.projectId
+      ? projects.value.find((item) => item.id === conversation.projectId && !item.archivedAt)
+      : undefined
+    if (project) {
+      selectedProjectId.value = project.id
+      workspace.value = project.workspace
+      workspaces.value = [project.workspace, ...workspaces.value.filter((item) => item !== project.workspace)].slice(0, 12)
+      if (conversation.workspace !== project.workspace) {
+        conversation.workspace = project.workspace
+        scheduleSave(conversation)
+      }
+    } else {
+      selectedProjectId.value = null
+      if (conversation.workspace) {
+        workspace.value = conversation.workspace
+        workspaces.value = [conversation.workspace, ...workspaces.value.filter((item) => item !== conversation.workspace)].slice(0, 12)
+      }
+    }
   }
 
   async function hydrate() {
     if (hydrated.value) return
-    const [summaries, ui] = await Promise.all([window.api.conversations.list(), window.api.state.load()])
+    const [summaries, ui, storedProjects] = await Promise.all([
+      window.api.conversations.list(),
+      window.api.state.load(),
+      window.api.projects.list()
+    ])
+    projects.value = storedProjects
     workspace.value = ui.selectedWorkspace
     workspaces.value = ui.recentWorkspaces || []
+    selectedProjectId.value = ui.selectedProjectId
+    expandedProjectIds.value = ui.expandedProjectIds || []
     rightPanelTab.value = ui.rightPanelTab === 'changes' ? 'changes' : 'github'
     selectedRepoFullName.value = typeof ui.repo?.full_name === 'string' ? ui.repo.full_name : null
     const loaded = await Promise.all(summaries.map((summary) => window.api.conversations.load(summary.id)))
@@ -82,30 +118,84 @@ export const useChatStore = defineStore('chat', () => {
     currentId.value = conversations.value.some((conversation) => conversation.id === ui.currentConversationId)
       ? ui.currentConversationId
       : conversations.value[0]?.id || null
+    applyActiveConversation(current())
     hydrated.value = true
   }
 
   async function selectWorkspace(path: string) {
-    workspace.value = path
-    workspaces.value = [path, ...workspaces.value.filter((item) => item !== path)].slice(0, 12)
+    if (running.value) return
+    const project = await window.api.projects.upsert({ workspace: path })
+    projects.value = [project, ...projects.value.filter((item) => item.id !== project.id)]
+    selectedProjectId.value = project.id
+    workspace.value = project.workspace
+    workspaces.value = [project.workspace, ...workspaces.value.filter((item) => item !== project.workspace)].slice(0, 12)
     const conversation = current()
-    if (conversation && !conversation.messages.length) conversation.workspace = path
+    if (conversation && !conversation.messages.length) {
+      conversation.workspace = project.workspace
+      conversation.projectId = project.id
+      scheduleSave(conversation)
+    } else {
+      const latest = [...conversations.value]
+        .filter((item) => item.projectId === project.id)
+        .sort((left, right) => (right.updatedAt || right.createdAt) - (left.updatedAt || left.createdAt))[0]
+      currentId.value = latest?.id || null
+    }
     await persistUiState()
-    scheduleSave(conversation)
+  }
+
+  async function selectProject(id: string | null) {
+    if (running.value) return
+    if (id === null) {
+      selectedProjectId.value = null
+      currentId.value = null
+      await persistUiState()
+      return
+    }
+    const project = projects.value.find((item) => item.id === id && !item.archivedAt)
+    if (!project) return
+    selectedProjectId.value = project.id
+    workspace.value = project.workspace
+    workspaces.value = [project.workspace, ...workspaces.value.filter((item) => item !== project.workspace)].slice(0, 12)
+    const latest = [...conversations.value]
+      .filter((item) => item.projectId === project.id)
+      .sort((left, right) => (right.updatedAt || right.createdAt) - (left.updatedAt || left.createdAt))[0]
+    currentId.value = latest?.id || null
+    await persistUiState()
+  }
+
+  async function toggleProjectExpanded(id: string) {
+    expandedProjectIds.value = expandedProjectIds.value.includes(id)
+      ? expandedProjectIds.value.filter((item) => item !== id)
+      : [...expandedProjectIds.value, id]
+    await persistUiState()
+  }
+
+  async function archiveProject(id: string) {
+    if (running.value) return
+    const archived = await window.api.projects.archive(id)
+    if (!archived) return
+    projects.value = projects.value.map((item) => item.id === id ? archived : item)
+    if (selectedProjectId.value === id) selectedProjectId.value = null
+    await persistUiState()
   }
 
   function newConversation() {
-    if (running.value) return current() || blankConversation(workspace.value || undefined)
-    const conversation = blankConversation(workspace.value || undefined)
+    if (running.value) return current() || blankConversation(workspace.value || undefined, selectedProjectId.value || undefined)
+    const project = selectedProjectId.value ? projects.value.find((item) => item.id === selectedProjectId.value && !item.archivedAt) : undefined
+    const conversation = blankConversation(project?.workspace || workspace.value || undefined, project?.id)
     conversations.value.unshift(conversation)
     currentId.value = conversation.id
     void window.api.conversations.save(JSON.parse(JSON.stringify(conversation)))
+    void persistUiState()
     return conversation
   }
 
   async function select(id: string) {
     if (running.value) return
+    const conversation = conversations.value.find((item) => item.id === id)
+    if (!conversation) return
     currentId.value = id
+    applyActiveConversation(conversation)
     await persistUiState()
   }
 
@@ -113,7 +203,10 @@ export const useChatStore = defineStore('chat', () => {
     if (running.value) return
     conversations.value = conversations.value.filter((conversation) => conversation.id !== id)
     await window.api.conversations.remove(id)
-    if (currentId.value === id) currentId.value = conversations.value[0]?.id || null
+    if (currentId.value === id) {
+      currentId.value = conversations.value[0]?.id || null
+      applyActiveConversation(current())
+    }
     await persistUiState()
   }
 
@@ -151,6 +244,7 @@ export const useChatStore = defineStore('chat', () => {
         existing.argsFragment = `${existing.argsFragment || ''}${event.argsFragment || ''}`
         existing.args = event.args || existing.args
         existing.error = event.error || existing.error
+        existing.writePreview = event.writePreview || existing.writePreview
       } else {
         events.push(event)
       }
@@ -161,6 +255,14 @@ export const useChatStore = defineStore('chat', () => {
         existing.content = event.content || existing.content
         existing.error = event.error || existing.error
       } else {
+        // Provider calls are announced as a batch while tools execute sequentially. Keep the
+        // call adjacent to its first result so callId is an unambiguous timeline relation.
+        const callIndex = events.findIndex((item) => item.type === 'tool_call' && item.callId === event.callId)
+        if (callIndex >= 0) {
+          const call = events.splice(callIndex, 1)[0]
+          call.seq = event.seq - 0.5
+          events.push(call)
+        }
         events.push(event)
       }
     } else {
@@ -307,6 +409,9 @@ export const useChatStore = defineStore('chat', () => {
     running,
     workspace,
     workspaces,
+    projects,
+    selectedProjectId,
+    expandedProjectIds,
     rightPanelTab,
     selectedRepoFullName,
     hydrated,
@@ -314,6 +419,9 @@ export const useChatStore = defineStore('chat', () => {
     hydrate,
     persistUiState,
     selectWorkspace,
+    selectProject,
+    toggleProjectExpanded,
+    archiveProject,
     newConversation,
     select,
     remove,

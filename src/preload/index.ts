@@ -8,6 +8,7 @@ export type SerializedConversation = JsonObject & {
   id: string
   title?: string
   workspace?: string
+  projectId?: string
   createdAt?: number
 }
 
@@ -15,8 +16,24 @@ export interface ConversationSummary {
   id: string
   title: string
   workspace?: string
+  projectId?: string
   createdAt?: number
   updatedAt: number
+}
+
+export interface Project {
+  id: string
+  name: string
+  workspace: string
+  createdAt: number
+  updatedAt: number
+  archivedAt?: number
+}
+
+export interface ProjectUpsertInput {
+  id?: string
+  name?: string
+  workspace: string
 }
 
 export interface UiState {
@@ -25,6 +42,8 @@ export interface UiState {
   currentConversationId: string | null
   rightPanelTab: string
   repo: JsonObject | null
+  selectedProjectId: string | null
+  expandedProjectIds: string[]
 }
 
 export interface FileState {
@@ -113,6 +132,11 @@ const api = {
     save: (conversation: SerializedConversation): Promise<ConversationSummary> =>
       ipcRenderer.invoke('conversations:save', conversation),
     remove: (id: string): Promise<boolean> => ipcRenderer.invoke('conversations:remove', id)
+  },
+  projects: {
+    list: (): Promise<Project[]> => ipcRenderer.invoke('projects:list'),
+    upsert: (project: ProjectUpsertInput): Promise<Project> => ipcRenderer.invoke('projects:upsert', project),
+    archive: (id: string): Promise<Project | null> => ipcRenderer.invoke('projects:archive', id)
   },
   state: {
     load: (): Promise<UiState> => ipcRenderer.invoke('state:load'),

@@ -35,13 +35,14 @@ const router = useRouter()
 </template>
 
 <style scoped>
-.settings-page { min-height: 100%; color: var(--text-primary); background: var(--bg-base); }
+.settings-page { height: 100vh; min-height: 0; overflow: auto; overscroll-behavior: contain; color: var(--text-primary); background: var(--bg-base); }
 .settings-topbar { height: 54px; display: flex; align-items: center; gap: 18px; padding: 0 22px; border-bottom: 1px solid var(--glass-border); background: var(--panel-bg); }
-.back { display: inline-flex; align-items: center; gap: 7px; border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 13px; }
+.back { display: inline-flex; align-items: center; gap: 7px; border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; font-size: 13px; transition: color 160ms ease, transform 160ms ease; }
 .back:hover { color: var(--text-primary); }
+.back:active { transform: translateX(-2px); }
 .brand { font-size: 14px; font-weight: 700; }
-.settings-body { display: grid; grid-template-columns: 210px minmax(0, 760px); justify-content: center; min-height: calc(100vh - 54px); }
-.settings-nav { padding: 36px 22px; border-right: 1px solid var(--glass-border); color: var(--text-secondary); }
+.settings-body { display: grid; grid-template-columns: 210px minmax(0, 760px); justify-content: center; min-width: 0; min-height: calc(100vh - 54px); }
+.settings-nav { min-width: 0; padding: 36px 22px; border-right: 1px solid var(--glass-border); color: var(--text-secondary); }
 .nav-title { margin-bottom: 16px; color: var(--text-primary); font-weight: 700; }
 .settings-nav a { display: block; padding: 8px 0; color: inherit; text-decoration: none; font-size: 13px; }
 .settings-nav a:hover { color: var(--accent); }

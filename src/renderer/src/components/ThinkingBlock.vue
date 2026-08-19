@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import MarkdownView from './MarkdownView.vue'
 
@@ -12,15 +12,12 @@ const props = withDefaults(defineProps<{
   status: ''
 })
 
-const open = ref(false)
+const open = ref(true)
 const label = computed(() => {
   if (props.status === 'error') return '模型思考中断'
   return props.streaming ? '模型思考中' : '模型思考'
 })
 
-watch(() => props.streaming, (streaming, wasStreaming) => {
-  if (wasStreaming && !streaming) open.value = false
-})
 </script>
 
 <template>

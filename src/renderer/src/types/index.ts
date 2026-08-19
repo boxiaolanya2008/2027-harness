@@ -30,9 +30,19 @@ export interface ReasoningEvent extends TurnEventBase {
   text: string
 }
 
+export interface WriteFilePreview {
+  path: string
+  // Real state read before the write; proposedContent is never a committed after snapshot.
+  before: { state: 'present' | 'missing' | 'unknown'; content: string | null; error?: string }
+  proposedContent: string
+  operation: 'modify' | 'create' | 'unknown'
+}
+
 export interface ToolCallEvent extends TurnEventBase {
   type: 'tool_call'
+  // Internal ID is unique across the entire run and joins tool events/change records.
   callId: string
+  // Original provider ID, retained for the protocol's tool messages.
   providerCallId?: string
   index: number
   phase: 'started' | 'arguments' | 'completed'
@@ -41,6 +51,7 @@ export interface ToolCallEvent extends TurnEventBase {
   rawArgs: string
   args?: Record<string, unknown>
   error?: string
+  writePreview?: WriteFilePreview
 }
 
 export interface ToolResultEvent extends TurnEventBase {
@@ -113,11 +124,21 @@ export interface ProviderHistoryMessage {
   reasoning_content?: string
 }
 
+export interface Project {
+  id: string
+  name: string
+  workspace: string
+  createdAt: number
+  updatedAt: number
+  archivedAt?: number
+}
+
 export interface Conversation {
   id: string
   title: string
   messages: Message[]
   workspace?: string
+  projectId?: string
   protocolHistory?: ProviderHistoryMessage[]
   createdAt: number
   updatedAt?: number
