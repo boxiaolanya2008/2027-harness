@@ -59,9 +59,10 @@ export async function execTool(
       return (await window.api.git.status(workspace)) || '(工作区干净)'
     case 'git_diff':
       return (await window.api.git.diff(workspace)) || '(无改动)'
-    case 'git_commit':
-      await window.api.git.commitAll(workspace, args.message)
-      return `已提交：${args.message}`
+    case 'git_commit': {
+      const result = await window.api.git.commitAll(workspace, args.message)
+      return result?.committed ? `已提交：${args.message}` : '没有可提交的改动；未创建提交'
+    }
     case 'git_new_branch':
       await window.api.git.newBranch(workspace, args.branch)
       return `已创建并切换到分支 ${args.branch}`

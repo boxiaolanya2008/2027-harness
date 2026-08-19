@@ -48,6 +48,12 @@ interface PendingToolCall {
   rawArgs: string
 }
 
+export interface RequestConfig {
+  model?: string
+  temperature?: number
+  reasoningEffort?: 'low' | 'medium' | 'high'
+}
+
 export type InternalCallIdFactory = (providerCallId: string | undefined, index: number) => string
 
 function makeEvent(seq: number, event: AssistantTurnEventInput): AssistantTurnEvent {
@@ -126,13 +132,16 @@ export async function* streamTurn(
   messages: ChatMsg[],
   tools?: ToolDef[],
   signal?: AbortSignal,
-  makeInternalCallId?: InternalCallIdFactory
+  makeInternalCallId?: InternalCallIdFactory,
+  requestConfig?: RequestConfig
 ): AsyncGenerator<AssistantTurnEvent> {
   const body: Record<string, unknown> = {
-    model: settings.model,
+    model: requestConfig?.model || settings.model,
     messages,
     stream: true
   }
+  if (requestConfig?.temperature !== undefined) body.temperature = requestConfig.temperature
+  if (requestConfig?.reasoningEffort) body.reasoning_effort = requestConfig.reasoningEffort
   if (tools?.length) body.tools = tools
 
   let res: Response

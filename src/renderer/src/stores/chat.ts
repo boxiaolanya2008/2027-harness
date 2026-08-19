@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { runAgent } from '@/api/agent'
-import { streamTurn } from '@/api/openai'
+import { streamTurn, type RequestConfig } from '@/api/openai'
 import { useSettingsStore } from './settings'
 import type {
   AssistantTurnEvent,
@@ -292,6 +292,17 @@ export const useChatStore = defineStore('chat', () => {
     scheduleSave(conversation)
   }
 
+  function resolveRequestConfig(mode: import('@/types').ComposerMode | undefined): RequestConfig {
+    const settings = useSettingsStore().settings
+    const preset = settings.modePresets?.[mode || 'coding'] || {}
+    const capabilities = settings.requestCapabilities || {}
+    return {
+      model: preset.model || settings.model,
+      ...(capabilities.temperature && typeof preset.temperature === 'number' ? { temperature: preset.temperature } : {}),
+      ...(capabilities.reasoningEffort && preset.reasoningEffort ? { reasoningEffort: preset.reasoningEffort } : {})
+    }
+  }
+
   async function sendPrompt(text: string, options?: { existingUser?: Message; attachments?: import('@/types').ComposerAttachment[]; mode?: import('@/types').ComposerMode }) {
     let conversation = current()
     if (!conversation) conversation = newConversation()
@@ -312,6 +323,7 @@ export const useChatStore = defineStore('chat', () => {
     const assistantMessage = ensureAssistantMessage(conversation, assistantId)
     assistantMessage.turnId = turnId
     const ws = conversation.workspace || workspace.value || undefined
+    const requestConfig = resolveRequestConfig(options?.mode)
     const modeInstruction = options?.mode === 'thinking'
       ? '\n请先进行充分的分步分析，再给出简洁结论。'
       : options?.mode === 'security'
@@ -344,7 +356,8 @@ export const useChatStore = defineStore('chat', () => {
           emit,
           abort.signal,
           (conversation.protocolHistory || []) as any,
-          { conversationId: conversation.id, turnId }
+          { conversationId: conversation.id, turnId },
+          requestConfig
         )
         conversation.protocolHistory = result.history as ProviderHistoryMessage[]
       } else {
@@ -354,7 +367,7 @@ export const useChatStore = defineStore('chat', () => {
         const messages = history.length ? [...history, { role: 'user', content: providerPrompt }] : [{ role: 'user', content: providerPrompt }]
         let output = ''
         let reasoning = ''
-        for await (const event of streamTurn(store.settings, key, messages, undefined, abort.signal)) {
+        for await (const event of streamTurn(store.settings, key, messages, undefined, abort.signal, undefined, requestConfig)) {
           emit(event)
           if (event.type === 'assistant_text') output += event.text
           if (event.type === 'reasoning') reasoning += event.text

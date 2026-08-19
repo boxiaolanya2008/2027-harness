@@ -106,7 +106,11 @@ async function oneClickPr() {
     const parsed = JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] || '{}')
     const branch = `super-agent/${Date.now().toString(36)}`
     await window.api.git.newBranch(ws, branch)
-    await window.api.git.commitAll(ws, parsed.message || 'Super-Agent: auto commit')
+    const commit = await window.api.git.commitAll(ws, parsed.message || 'Super-Agent: auto commit')
+    if (!commit?.committed) {
+      ElMessage.info('没有待提交的改动，未创建 PR')
+      return
+    }
     await window.api.git.push(ws, branch)
 
     const remote = await window.api.git.remote(ws)
@@ -138,30 +142,24 @@ async function oneClickPr() {
       <Icon icon="mdi:github" width="18" />
     </header>
 
-    <section class="tab-launcher">
-      <div class="launcher-copy">
-        <h3>打开标签页</h3>
-        <p>选择要在侧边面板中打开的标签。</p>
-      </div>
-      <div class="picker-grid">
-        <button type="button" :class="{ active: tab === 'github' }" @click="tab = 'github'">
-          <Icon icon="mdi:source-commit" width="26" />
-          <span>本地 Git</span>
-        </button>
-        <button type="button" :class="{ active: tab === 'pr' }" @click="tab = 'pr'">
-          <Icon icon="mdi:source-pull" width="26" />
-          <span>Pull Request</span>
-        </button>
-        <button type="button" :class="{ active: tab === 'issue' }" @click="tab = 'issue'">
-          <Icon icon="mdi:alert-circle-outline" width="26" />
-          <span>Issue</span>
-        </button>
-        <button type="button" :class="{ active: tab === 'changes' }" @click="tab = 'changes'">
-          <Icon icon="mdi:file-document-edit-outline" width="26" />
-          <span>会话改动</span>
-        </button>
-      </div>
-    </section>
+    <nav class="view-nav" aria-label="工作区视图">
+      <button type="button" :class="{ active: tab === 'github' }" title="本地 Git" @click="tab = 'github'">
+        <Icon icon="mdi:source-commit" width="18" />
+        <span>Git</span>
+      </button>
+      <button type="button" :class="{ active: tab === 'pr' }" title="Pull Request" @click="tab = 'pr'">
+        <Icon icon="mdi:source-pull" width="18" />
+        <span>PR</span>
+      </button>
+      <button type="button" :class="{ active: tab === 'issue' }" title="Issue" @click="tab = 'issue'">
+        <Icon icon="mdi:alert-circle-outline" width="18" />
+        <span>Issue</span>
+      </button>
+      <button type="button" :class="{ active: tab === 'changes' }" title="会话管理" @click="tab = 'changes'">
+        <Icon icon="mdi:file-document-edit-outline" width="18" />
+        <span>会话</span>
+      </button>
+    </nav>
 
     <div v-show="tab === 'github'" class="panel-body">
       <GitTimelinePanel v-if="chat.workspace" />
@@ -215,15 +213,11 @@ async function oneClickPr() {
 .details-head { height: var(--topbar-height); flex: 0 0 var(--topbar-height); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--glass-border); background: var(--panel-bg); }
 .details-head h2 { margin: 0; font-size: 13px; font-weight: 600; }
 .details-head span { color: var(--text-secondary); font-size: 12px; }
-.tab-launcher { flex: 0 0 auto; padding: 18px 16px 8px; }
-.launcher-copy { margin-bottom: 14px; text-align: center; }
-.launcher-copy h3 { margin: 0 0 6px; color: var(--text-primary); font-size: 16px; font-weight: 650; }
-.launcher-copy p { margin: 0; color: var(--text-faint); font-size: 12px; }
-.picker-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
-.picker-grid button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2); min-height: calc(72px * var(--ui-space-scale)); padding: var(--space-3) var(--space-2); border: 1px solid var(--glass-border); border-radius: 12px; color: var(--text-secondary); background: var(--surface-bg); cursor: pointer; }
-.picker-grid button:hover { color: var(--text-primary); border-color: var(--accent); background: var(--hover-bg); }
-.picker-grid button.active { color: var(--text-primary); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--surface-bg)); }
-.picker-grid span { font-size: 12px; }
+.view-nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); flex: 0 0 auto; border-bottom: 1px solid var(--glass-border); background: var(--panel-bg); }
+.view-nav button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 34px; padding: 0 4px; border: 0; border-bottom: 2px solid transparent; color: var(--text-secondary); background: transparent; cursor: pointer; font-size: 11px; }
+.view-nav button:hover { color: var(--text-primary); background: var(--hover-bg); }
+.view-nav button.active { border-bottom-color: var(--accent); color: var(--accent); }
+.view-nav svg { flex: 0 0 auto; }
 .panel-body { display: flex; flex: 1 1 auto; min-height: 0; min-width: 0; flex-direction: column; overflow: hidden; }
 .panel-body--changes, .panel-body--list { min-height: 0; overflow: hidden; }
 .panel-body--changes :deep(.changes-panel), .panel-body--changes :deep(.change-list) { flex: 1 1 auto; min-height: 0; overscroll-behavior: contain; }

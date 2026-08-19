@@ -19,6 +19,22 @@ const models = computed(() => {
   return list
 })
 const enabled = computed(() => settings.hasAiKey && Boolean(settings.settings.model))
+const modes = [
+  { id: 'coding' as const, label: '编码' },
+  { id: 'thinking' as const, label: '思考' },
+  { id: 'security' as const, label: '安全' }
+]
+
+function preset(mode: 'coding' | 'thinking' | 'security') {
+  if (!settings.settings.modePresets) settings.settings.modePresets = {}
+  if (!settings.settings.modePresets[mode]) settings.settings.modePresets[mode] = {}
+  return settings.settings.modePresets[mode]!
+}
+
+function capabilities() {
+  if (!settings.settings.requestCapabilities) settings.settings.requestCapabilities = {}
+  return settings.settings.requestCapabilities
+}
 
 function useModel(name: string) {
   model.value = name
@@ -106,6 +122,30 @@ async function save() {
         <el-form-item label="API Key">
           <el-input v-model="apiKey" type="password" show-password :placeholder="settings.hasAiKey ? '已保存 ·••••••••，留空则保留当前值' : '输入 API Key'" />
         </el-form-item>
+        <el-form-item label="请求能力">
+          <div class="capabilities">
+            <el-switch v-model="capabilities().temperature" active-text="发送 temperature" />
+            <el-switch v-model="capabilities().reasoningEffort" active-text="发送 reasoning_effort" />
+          </div>
+          <small class="capability-note">仅在当前兼容接口明确支持时启用；未启用时字段不会发送。</small>
+        </el-form-item>
+        <el-form-item label="模式预设">
+          <div class="preset-table">
+            <div v-for="item in modes" :key="item.id" class="preset-row">
+              <strong>{{ item.label }}</strong>
+              <el-select v-model="preset(item.id).model" clearable placeholder="使用全局模型">
+                <el-option v-for="name in models" :key="name" :label="name" :value="name" />
+              </el-select>
+              <el-input-number v-model="preset(item.id).temperature" :min="0" :max="2" :step="0.1" :precision="1" controls-position="right" placeholder="温度" />
+              <el-select v-model="preset(item.id).reasoningEffort" clearable :disabled="!settings.settings.requestCapabilities?.reasoningEffort" placeholder="思考等级">
+                <el-option label="低" value="low" />
+                <el-option label="中" value="medium" />
+                <el-option label="高" value="high" />
+              </el-select>
+            </div>
+          </div>
+          <small>模型、温度、思考等级会在发送时按当前模式应用。</small>
+        </el-form-item>
         <el-form-item label="模型列表">
           <div class="model-list">
             <div v-for="item in models" :key="item" class="model-row" :class="{ active: model === item }">
@@ -145,6 +185,15 @@ h2 { margin: 0 0 6px; font-size: 18px; }
 p { margin: 0; color: var(--text-secondary); font-size: 13px; }
 .badge { padding: 3px 8px; border-radius: 999px; color: var(--text-faint); background: var(--panel-bg); font-size: 12px; }
 .badge.on { color: #17803d; background: rgba(39, 166, 90, 0.12); }
+.capabilities { display: flex; flex-wrap: wrap; gap: 12px 20px; margin-bottom: 8px; }
+.capabilities :deep(.el-switch) { min-width: 180px; }
+.capability-note { display: block; margin-top: 6px; line-height: 1.45; }
+.preset-table { display: grid; gap: 8px; width: 100%; }
+.preset-row { display: grid; grid-template-columns: 48px minmax(0, 1fr) minmax(110px, 130px) minmax(120px, 140px); align-items: center; gap: 8px; min-width: 0; padding: 8px; border: 1px solid var(--glass-border); border-radius: 8px; background: var(--panel-bg); }
+.preset-row > * { min-width: 0; }
+.preset-row :deep(.el-select), .preset-row :deep(.el-input-number) { width: 100%; min-width: 0; }
+.preset-row :deep(.el-input-number .el-input__wrapper) { width: 100%; }
+.preset-row strong { font-size: 12px; }
 .model-list { display: flex; flex-direction: column; gap: 6px; width: 100%; }
 .model-row { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--glass-border); border-radius: 8px; }
 .model-row.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface-bg)); }
@@ -155,8 +204,15 @@ p { margin: 0; color: var(--text-secondary); font-size: 13px; }
 .add-model { width: fit-content; padding: 6px 2px; border: 0; background: transparent; color: var(--accent); cursor: pointer; }
 .add-row { display: flex; gap: 8px; align-items: center; }
 .actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
+@media (max-width: 860px) {
+  .preset-row { grid-template-columns: 48px minmax(0, 1fr) minmax(100px, 120px); }
+  .preset-row :deep(.el-select:last-child) { grid-column: 2 / -1; }
+}
 @media (max-width: 680px) {
   .model-settings { grid-template-columns: 1fr; }
   .provider-list { border-right: 0; border-bottom: 1px solid var(--glass-border); }
+  .preset-row { grid-template-columns: 1fr 1fr; }
+  .preset-row strong { grid-column: 1 / -1; }
+  .preset-row :deep(.el-select:last-child) { grid-column: auto; }
 }
 </style>

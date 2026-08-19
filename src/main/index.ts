@@ -12,6 +12,13 @@ import { ChangeJournal, parseWriteContext } from './state/change-journal'
 
 const exec = promisify(execFile)
 
+async function hasStagedChanges(cwd: string) {
+  await runGit(['add', '-A'], cwd)
+  return runGit(['diff', '--cached', '--quiet'], cwd)
+    .then(() => false)
+    .catch(() => true)
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1440,
@@ -140,11 +147,12 @@ function registerIpc() {
     }
     const existingRemote = await runGit(['remote', 'get-url', 'origin'], cwd).catch(() => '')
     const branch = (await runGit(['branch', '--show-current'], cwd).catch(() => '')) || 'main'
-    const hasChanges = await runGit(['status', '--porcelain'], cwd).then((value) => !!value).catch(() => false)
     const hasCommit = await runGit(['rev-parse', '--verify', 'HEAD'], cwd).then(() => true).catch(() => false)
-    if (hasChanges || !hasCommit) {
-      await runGit(['add', '-A'], cwd)
+    const stagedChanges = await hasStagedChanges(cwd)
+    if (stagedChanges) {
       await runGit(['commit', '-m', hasCommit ? 'Publish current workspace' : 'Initial commit'], cwd)
+    } else if (!hasCommit) {
+      throw new Error('工作区没有可发布的文件。请先添加文件并提交后再发布。')
     }
 
     let created: any = null
@@ -162,9 +170,9 @@ function registerIpc() {
     return { name: created?.name || name, full_name: created?.full_name || name, html_url: created?.html_url || existingRemote }
   })
   ipcMain.handle('git:commitAll', async (_e, cwd: string, message: string) => {
-    await runGit(['add', '-A'], cwd)
+    if (!await hasStagedChanges(cwd)) return { committed: false, reason: 'no_changes' }
     await runGit(['commit', '-m', message], cwd)
-    return true
+    return { committed: true }
   })
   ipcMain.handle('git:newBranch', (_e, cwd: string, branch: string) =>
     runGit(['checkout', '-b', branch], cwd)

@@ -66,7 +66,16 @@ function formatConversationTime(conversation: Conversation) {
     </div>
 
     <section class="conversation-section">
-      <div class="section-head conversation-heading"><span>任务</span><span class="conversation-count">{{ sortedConversations.length }}</span></div>
+      <div class="section-head conversation-heading">
+        <span>任务</span>
+        <div class="heading-actions">
+          <span class="conversation-count">{{ sortedConversations.length }}</span>
+          <button class="new-task-btn" title="新建任务" @click="chat.newConversation()">
+            <Icon icon="mdi:plus" width="16" />
+            <span>新建任务</span>
+          </button>
+        </div>
+      </div>
       <div class="conversation-list">
         <section v-for="group in groupedProjects" :key="group.project.id" class="project-group">
           <div class="project-head" :class="{ active: isProjectHeadActive(group.project, group.conversations) }">
@@ -74,9 +83,12 @@ function formatConversationTime(conversation: Conversation) {
               <Icon class="project-toggle-icon" :class="{ expanded: isExpanded(group.project) }" icon="mdi:chevron-right" width="16" />
             </button>
             <button class="project-select" :title="group.project.workspace" @click="chat.selectProject(group.project.id)">
-              <Icon icon="mdi:folder-outline" width="16" /><span>{{ group.project.name }}</span><small>{{ group.conversations.length }}</small>
+              <Icon icon="mdi:folder-outline" width="16" /><span>{{ group.project.name }}</span>
             </button>
-            <button class="project-archive" title="归档项目" @click="chat.archiveProject(group.project.id)"><Icon icon="mdi:archive-outline" width="15" /></button>
+            <div class="project-actions">
+              <button class="project-action" title="在该项目下新建任务" @click.stop="chat.selectProject(group.project.id); chat.newConversation()"><Icon icon="mdi:message-plus-outline" width="15" /></button>
+              <button class="project-action" title="归档项目" @click.stop="chat.archiveProject(group.project.id)"><Icon icon="mdi:archive-outline" width="15" /></button>
+            </div>
           </div>
           <el-collapse-transition>
             <div v-show="isExpanded(group.project)" class="project-conversations">
@@ -92,7 +104,10 @@ function formatConversationTime(conversation: Conversation) {
 
         <section v-if="ungroupedConversations.length" class="project-group ungrouped-group">
           <div class="project-head" :class="{ active: chat.selectedProjectId === null && !ungroupedConversations.some((item) => item.id === chat.currentId) }">
-            <button class="project-select" @click="chat.selectProject(null)"><Icon icon="mdi:message-outline" width="16" /><span>未分组</span><small>{{ ungroupedConversations.length }}</small></button>
+            <button class="project-select" @click="chat.selectProject(null)"><Icon icon="mdi:message-outline" width="16" /><span>未分组</span></button>
+            <div class="project-actions">
+              <button class="project-action" title="新建未分组任务" @click.stop="chat.selectProject(null); chat.newConversation()"><Icon icon="mdi:message-plus-outline" width="15" /></button>
+            </div>
           </div>
           <div class="project-conversations">
             <button v-for="conversation in ungroupedConversations" :key="conversation.id" class="conversation-row" :class="{ active: conversation.id === chat.currentId }" @click="chat.select(conversation.id)">
@@ -105,8 +120,6 @@ function formatConversationTime(conversation: Conversation) {
         <EmptyState v-if="!sortedConversations.length && !activeProjects.length && chat.hydrated" title="还没有项目或任务" desc="选择本地目录即可创建项目。" />
       </div>
     </section>
-
-    <div class="sidebar-footer"><button class="new-task" @click="chat.newConversation()"><Icon icon="mdi:plus" width="18" /><span>新建任务</span></button></div>
   </section>
 </template>
 
@@ -138,9 +151,51 @@ function formatConversationTime(conversation: Conversation) {
 .project-select { display: flex; min-width: 0; flex: 1; align-items: center; gap: 6px; padding: calc(7px * var(--ui-space-scale)) 5px calc(7px * var(--ui-space-scale)) 0; border: 0; color: inherit; background: transparent; cursor: pointer; text-align: left; }
 .project-select span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 650; }
 .project-select small { color: var(--text-faint); font-size: 10px; }
-.project-archive { display: grid; place-items: center; width: 27px; height: 27px; margin-right: 3px; border: 0; border-radius: 5px; color: var(--text-faint); background: transparent; cursor: pointer; opacity: 0; }
-.project-head:hover .project-archive, .project-head:focus-within .project-archive { opacity: 1; }
-.project-archive:hover { color: var(--accent); background: var(--hover-bg); }
+.heading-actions { display: flex; align-items: center; gap: 8px; }
+.new-task-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 7px;
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-bg);
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.new-task-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--selected-bg);
+}
+.project-actions {
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.project-head:hover .project-actions,
+.project-head:focus-within .project-actions {
+  opacity: 1;
+}
+.project-action {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 4px;
+  color: var(--text-faint);
+  background: transparent;
+  cursor: pointer;
+}
+.project-action:hover {
+  color: var(--accent);
+  background: var(--hover-bg);
+}
 .project-conversations { margin-top: 2px; padding: 0 0 2px 22px; display: flex; flex-direction: column; gap: 1px; background: transparent; }
 .conversation-row { position: relative; display: flex; align-items: center; gap: 8px; width: 100%; padding: calc(5px * var(--ui-space-scale)) var(--space-2); border: 0; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; cursor: pointer; text-align: left; font-size: 13px; }
 .conversation-row:hover { background: var(--hover-bg); color: var(--text-primary); }

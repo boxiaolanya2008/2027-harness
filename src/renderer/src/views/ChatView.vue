@@ -60,7 +60,25 @@ const attachments = ref<ComposerAttachment[]>([])
 const composerMode = ref<ComposerMode>('coding')
 
 const activeConversation = computed(() => chat.current())
-const activeWorkspaceName = computed(() => chat.workspace?.split(/[\\/]/).filter(Boolean).pop() || '未选择工作区')
+const activeWorkspaceName = computed(() => chat.workspace?.split(/[\\/]/).filter(Boolean).pop() || '')
+const currentBranch = ref('')
+
+async function updateCurrentBranch() {
+  if (!chat.workspace) {
+    currentBranch.value = ''
+    return
+  }
+  try {
+    const branch = await window.api.git.branch(chat.workspace)
+    currentBranch.value = branch || ''
+  } catch {
+    currentBranch.value = ''
+  }
+}
+
+watch(() => chat.workspace, () => {
+  void updateCurrentBranch()
+}, { immediate: true })
 
 function nearBottom() {
   const element = listRef.value
@@ -127,12 +145,19 @@ watch(
     <section class="center-pane">
       <header class="topbar">
         <div class="topbar-context">
-          <strong>{{ activeConversation?.title || '新任务' }}</strong>
-          <span><Icon icon="mdi:folder-open-outline" width="14" /> {{ activeWorkspaceName }}</span>
+          <strong class="conversation-title" :title="activeConversation?.title || '新任务'">{{ activeConversation?.title || '新任务' }}</strong>
+          <span v-if="activeWorkspaceName" class="topbar-pill topbar-pill--workspace" :title="chat.workspace || ''">
+            <Icon icon="mdi:folder-outline" width="14" />
+            <span>{{ activeWorkspaceName }}</span>
+          </span>
+          <span v-if="currentBranch" class="topbar-pill topbar-pill--branch" :title="`Git 分支: ${currentBranch}`">
+            <Icon icon="mdi:source-branch" width="14" />
+            <span>{{ currentBranch }}</span>
+          </span>
         </div>
         <div class="topbar-actions">
-          <button title="切换详情栏" @click="rightOpen = !rightOpen"><Icon icon="mdi:page-layout-sidebar-right" width="18" /></button>
-          <button title="应用设置" @click="router.push('/settings')"><Icon icon="mdi:cog" width="18" /></button>
+          <button title="切换详情栏" @click="rightOpen = !rightOpen"><Icon icon="mdi:page-layout-sidebar-right" width="17" /></button>
+          <button title="应用设置" @click="router.push('/settings')"><Icon icon="mdi:cog-outline" width="17" /></button>
         </div>
       </header>
 
@@ -189,12 +214,30 @@ watch(
 .app-mark { height: var(--topbar-height); display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); background: var(--panel-bg); font-size: 13px; font-weight: 600; }
 .logo { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 3px; color: white; background: var(--accent); font-size: 11px; }
 .center-pane { display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; background: var(--workbench-bg); }
-.topbar { height: var(--topbar-height); flex: 0 0 var(--topbar-height); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--glass-border); background: var(--panel-bg); }
-.topbar-context { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.topbar-context strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
-.topbar-context span { display: inline-flex; align-items: center; gap: 5px; overflow: hidden; color: var(--text-secondary); text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-.topbar-actions { display: flex; gap: 2px; }
-.topbar-actions button { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 3px; color: var(--text-secondary); background: transparent; cursor: pointer; }
+.topbar { height: var(--topbar-height); flex: 0 0 var(--topbar-height); display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid var(--glass-border); background: var(--panel-bg); gap: 10px; }
+.topbar-context { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; }
+.conversation-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; max-width: min(320px, 40%); flex: 0 1 auto; }
+.topbar-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--surface-bg);
+  border: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 16px;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 0 0 auto;
+}
+.topbar-pill svg { flex: none; color: var(--text-faint); }
+.topbar-pill--branch svg { color: var(--accent); }
+.topbar-actions { display: flex; gap: 4px; flex: 0 0 auto; }
+.topbar-actions button { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; cursor: pointer; }
 .topbar-actions button:hover { color: var(--text-primary); background: var(--hover-bg); }
 .message-scroll { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
 .message-list { width: min(900px, 100%); min-width: 0; margin: 0 auto; padding: calc(16px * var(--ui-space-scale)) calc(20px * var(--ui-space-scale)) calc(24px * var(--ui-space-scale)); }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import FileDiffView from './FileDiffView.vue'
 import { getDiffStats } from '@/utils/fileDiff'
@@ -37,8 +37,23 @@ const state = computed(() => props.call.status || 'running')
 const stateLabel = computed(() => ({ running: '运行中', done: '已完成', error: '失败' }[state.value] || state.value))
 const stateIcon = computed(() => ({ running: 'mdi:loading', done: 'mdi:check-circle', error: 'mdi:alert-circle' }[state.value] || 'mdi:tools'))
 const isFileEdit = computed(() => ['write_file', 'incrementally_edit'].includes(props.call.name))
+const isListDir = computed(() => props.call.name === 'list_dir')
 const filePath = computed(() => typeof props.call.args?.path === 'string' ? props.call.args.path : '')
-const showResult = computed(() => props.call.name === 'run_command' || state.value === 'error')
+const showResult = computed(() => (props.call.name === 'run_command' || !isListDir.value) && (props.call.name === 'run_command' || state.value === 'error'))
+
+const parsedDirectoryItems = computed(() => {
+  if (!isListDir.value || !output.value) return []
+  return output.value
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const isDir = line.startsWith('[d]')
+      const isFile = line.startsWith('[f]')
+      const name = (isDir || isFile) ? line.slice(3).trim() : line
+      return { isDir, name }
+    })
+})
 
 function asText(value: unknown): string | null {
   return typeof value === 'string' ? value : value == null ? null : String(value)
@@ -110,7 +125,6 @@ const diffSnapshot = computed(() => {
     preview: true
   }
 })
-const fileContent = computed(() => diffSnapshot.value?.after)
 const diffStats = computed(() => diffSnapshot.value
   ? getDiffStats(diffSnapshot.value.before, diffSnapshot.value.after)
   : undefined)
@@ -123,26 +137,42 @@ const diffStats = computed(() => diffSnapshot.value
       <Icon class="tool-icon" :class="{ 'tool-icon--spinning': state === 'running' }" :icon="stateIcon" width="16" />
       <code class="tool-name">{{ call.name || 'unknown_tool' }}</code>
       <code v-if="isFileEdit && filePath" class="tool-path">{{ filePath }}</code>
+      <code v-else-if="isListDir" class="tool-path">{{ (call.args?.path as string) || '.' }}</code>
       <span class="tool-state">{{ diffSnapshot?.preview && state === 'running' ? '准备写入' : stateLabel }}</span>
-      <span v-if="diffStats" class="tool-diff-summary">+{{ diffStats.additions }} −{{ diffStats.deletions }}</span>
+      <span v-if="diffStats" class="tool-diff-summary">
+        <span class="diff-add">+{{ diffStats.additions }}</span>
+        <span class="diff-del">−{{ diffStats.deletions }}</span>
+      </span>
     </button>
 
     <div v-if="open" class="tool-detail">
-      <section v-if="!isFileEdit" class="tool-detail-section">
+      <section v-if="!isFileEdit && !isListDir" class="tool-detail-section">
         <span class="tool-detail-label">参数</span>
         <pre class="tool-code">{{ rawArguments }}</pre>
       </section>
-      <section v-if="isFileEdit && fileContent !== undefined" class="tool-detail-section">
-        <span class="tool-detail-label">文件内容</span>
-        <pre class="tool-code tool-result">{{ fileContent }}</pre>
+
+      <section v-if="isListDir && parsedDirectoryItems.length" class="tool-detail-section">
+        <div class="dir-view">
+          <div class="dir-summary">
+            <span>{{ parsedDirectoryItems.filter(i => i.isDir).length }} 目录</span>
+            <span>{{ parsedDirectoryItems.filter(i => !i.isDir).length }} 文件</span>
+          </div>
+          <div class="dir-grid">
+            <div v-for="item in parsedDirectoryItems" :key="item.name" class="dir-item" :class="{ 'dir-item--dir': item.isDir }">
+              <Icon :icon="item.isDir ? 'mdi:folder' : 'mdi:file-outline'" width="15" />
+              <span>{{ item.name }}</span>
+            </div>
+          </div>
+        </div>
       </section>
-      <section v-if="diffSnapshot" class="tool-detail-section">
-        <span class="tool-detail-label">Diff</span>
+
+      <section v-if="diffSnapshot" class="tool-detail-section tool-detail-section--diff">
         <FileDiffView
           :before="diffSnapshot.before"
           :after="diffSnapshot.after"
           :path="diffSnapshot.path"
           :operation="diffSnapshot.operation"
+          :hide-header="true"
         />
       </section>
       <section v-if="showResult && output !== undefined" class="tool-detail-section">
@@ -183,7 +213,9 @@ const diffStats = computed(() => diffSnapshot.value
 .tool-name { flex: none; color: var(--text-primary); font-family: 'Cascadia Code', Consolas, monospace; }
 .tool-path { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-secondary); font-family: 'Cascadia Code', Consolas, monospace; }
 .tool-state { margin-left: auto; flex: none; color: var(--text-faint); white-space: nowrap; }
-.tool-diff-summary { flex: none; color: var(--text-secondary); white-space: nowrap; font-size: 11px; }
+.tool-diff-summary { display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: 11px; font-weight: 500; font-family: 'Cascadia Code', Consolas, monospace; }
+.diff-add { color: var(--diff-add); }
+.diff-del { color: var(--diff-remove); }
 .tool-activity--running .tool-name,
 .tool-activity--running .tool-state { color: #d9a93f; }
 .tool-activity--error .tool-icon,
@@ -194,6 +226,13 @@ const diffStats = computed(() => diffSnapshot.value
 .tool-detail-label { display: block; padding: 6px var(--space-3); color: var(--text-faint); font-size: 11px; }
 .tool-code { margin: 0; padding: 0 var(--space-3) var(--space-3); max-height: 240px; overflow: auto; white-space: pre-wrap; word-break: break-word; color: var(--text-secondary); font: 12px/1.55 'Cascadia Code', Consolas, monospace; }
 .tool-result { color: var(--text-primary); }
-.tool-detail :deep(.diff-view) { margin: 0 var(--space-3) var(--space-3); }
+.tool-detail :deep(.diff-view) { margin: 0; border: 0; }
+.dir-view { padding: var(--space-2) var(--space-3) var(--space-3); }
+.dir-summary { display: flex; gap: var(--space-3); margin-bottom: var(--space-2); color: var(--text-faint); font-size: 11px; }
+.dir-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 6px; }
+.dir-item { display: flex; align-items: center; gap: 6px; padding: 5px 8px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); background: var(--surface-bg); color: var(--text-secondary); font-size: 12px; font-family: 'Cascadia Code', Consolas, monospace; }
+.dir-item--dir { color: var(--text-primary); font-weight: 500; }
+.dir-item svg { flex: none; color: var(--accent); }
+.dir-item:not(.dir-item--dir) svg { color: var(--text-faint); }
 @keyframes tool-spin { to { transform: rotate(360deg); } }
 </style>

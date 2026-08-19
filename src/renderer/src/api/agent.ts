@@ -1,4 +1,4 @@
-import { streamTurn, type ChatMsg, type ProviderToolCall, type ChatContentPart } from './openai'
+import { streamTurn, type ChatMsg, type ProviderToolCall, type ChatContentPart, type RequestConfig } from './openai'
 import { TOOLS, SYSTEM, execTool } from './agent-tools'
 import type { AssistantTurnEvent, AssistantTurnEventInput, FileEditPreview, Settings, StreamState } from '@/types'
 
@@ -106,7 +106,8 @@ export async function runAgent(
   onEvent: (event: AgentEvent) => void,
   signal?: AbortSignal,
   history: ChatMsg[] = [],
-  context?: { conversationId: string; turnId: string }
+  context?: { conversationId: string; turnId: string },
+  requestConfig?: RequestConfig
 ): Promise<RunAgentResult> {
   const settings = settingsStore.settings
   const apiKey = await window.api.settings.getAiKeyForRequest()
@@ -140,7 +141,7 @@ export async function runAgent(
     let reasoning = ''
     let providerState: StreamState = 'streaming'
 
-    for await (const streamedEvent of streamTurn(settings, apiKey, messages, TOOLS, signal, makeInternalCallId)) {
+    for await (const streamedEvent of streamTurn(settings, apiKey, messages, TOOLS, signal, makeInternalCallId, requestConfig)) {
       // A provider's completed status only ends this model request. The full agent run can still have tools to run.
       if (streamedEvent.type === 'status') {
         providerState = streamedEvent.state

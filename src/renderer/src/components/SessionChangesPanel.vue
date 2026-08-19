@@ -4,7 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import FileDiffView from './FileDiffView.vue'
 import { useChatStore } from '@/stores/chat'
-import { getDiffStats, type DiffStats } from '@/utils/fileDiff'
+import { getDiffStats } from '@/utils/fileDiff'
 
 type FileState = { exists: boolean; content: string | null; sha256: string | null; size: number }
 type Change = {
@@ -20,14 +20,32 @@ type Change = {
 const chat = useChatStore()
 const changes = ref<Change[]>([])
 const loading = ref(false)
-const expanded = ref<string | null>(null)
 const forceNext = ref(false)
+const expandedPath = ref<string | null>(null)
+
+function fileName(path: string) {
+  return path.split(/[\\/]/).filter(Boolean).pop() || path
+}
+
+function parentPath(path: string) {
+  const parts = path.split(/[\\/]/).filter(Boolean)
+  return parts.length > 1 ? parts.slice(0, -1).join('/') : ''
+}
+
+function fileIcon(path: string) {
+  const ext = path.split('.').pop()?.toLowerCase()
+  if (['ts', 'tsx', 'js', 'jsx'].includes(ext || '')) return 'mdi:language-typescript'
+  if (['vue'].includes(ext || '')) return 'mdi:vuejs'
+  if (['css', 'scss', 'less'].includes(ext || '')) return 'mdi:language-css3'
+  if (['md', 'markdown'].includes(ext || '')) return 'mdi:language-markdown'
+  if (['json', 'yml', 'yaml', 'xml'].includes(ext || '')) return 'mdi:code-json'
+  return 'mdi:file-outline'
+}
 
 const stats = computed(() => changes.value.reduce((sum, change) => {
   const diff = getDiffStats(change.before.content, change.after.content)
   return { files: sum.files + 1, additions: sum.additions + diff.additions, deletions: sum.deletions + diff.deletions }
 }, { files: 0, additions: 0, deletions: 0 }))
-const changeStats = (change: Change): DiffStats => getDiffStats(change.before.content, change.after.content)
 
 async function load() {
   if (!chat.currentId) {
@@ -109,24 +127,33 @@ onMounted(load)
     <div v-if="loading" class="changes-state">正在读取本次会话改动…</div>
     <div v-else-if="!changes.length" class="changes-state">本次会话还没有捕获到文件写入。</div>
     <div v-else class="change-list">
-      <article v-for="change in changes" :key="change.path" class="change-row">
-        <button class="change-main" @click="expanded = expanded === change.path ? null : change.path">
-          <Icon :icon="expanded === change.path ? 'mdi:chevron-down' : 'mdi:chevron-right'" width="16" />
-          <span class="file-name">{{ change.path }}</span>
-          <span class="file-op" :class="`file-op--${change.operation}`">{{ change.operation }}</span>
-          <span class="change-diff-stats">(+{{ changeStats(change).additions }} -{{ changeStats(change).deletions }})</span>
-        </button>
-        <div class="change-actions">
-          <span class="change-count">{{ change.changeCount }} 次</span>
-          <el-button text size="small" :disabled="chat.running" @click="restore(change)">撤回</el-button>
+      <article v-for="change in changes" :key="change.path" class="change-row" :class="{ expanded: expandedPath === change.path }">
+        <div class="change-entry">
+          <button class="change-main" type="button" :aria-expanded="expandedPath === change.path" @click="expandedPath = expandedPath === change.path ? null : change.path">
+            <Icon class="file-icon" :icon="fileIcon(change.path)" width="18" />
+            <span class="file-copy">
+              <strong>{{ fileName(change.path) }}</strong>
+              <small>{{ parentPath(change.path) || '工作区根目录' }}</small>
+            </span>
+            <span class="change-stats"><b class="change-add">+{{ getDiffStats(change.before.content, change.after.content).additions }}</b><b class="change-remove">-{{ getDiffStats(change.before.content, change.after.content).deletions }}</b></span>
+            <Icon class="entry-chevron" :class="{ open: expandedPath === change.path }" icon="mdi:chevron-right" width="18" />
+          </button>
+          <div class="change-toolbar">
+            <span class="change-count">{{ change.changeCount }} 次变更</span>
+            <el-button text size="small" :disabled="chat.running" @click="restore(change)">撤回</el-button>
+          </div>
         </div>
-        <FileDiffView
-          v-if="expanded === change.path"
-          :before="change.before.content"
-          :after="change.after.content"
-          :path="change.path"
-          :operation="change.operation"
-        />
+        <el-collapse-transition>
+          <div v-show="expandedPath === change.path" class="change-diff">
+            <FileDiffView
+              :before="change.before.content"
+              :after="change.after.content"
+              :path="change.path"
+              :operation="change.operation"
+              :hide-header="true"
+            />
+          </div>
+        </el-collapse-transition>
       </article>
     </div>
   </section>
@@ -140,14 +167,20 @@ onMounted(load)
 .head-actions { display: flex; align-items: center; gap: 2px; }
 .changes-state { padding: var(--space-6) var(--space-4); color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
 .change-list { overflow: auto; padding: var(--space-1) var(--space-3) var(--space-5); }
-.change-row { padding: var(--space-3) 0; border-bottom: 1px solid var(--glass-border); }
-.change-main { display: flex; align-items: center; width: calc(100% - 60px); gap: 5px; border: 0; color: var(--text-primary); background: transparent; cursor: pointer; text-align: left; }
-.file-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px 'Cascadia Code', Consolas, monospace; }
-.file-op { flex: 0 0 auto; font-size: 10px; color: var(--accent); }
-.file-op--delete { color: #d95757; }
-.change-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px; }
-.change-count { color: var(--text-faint); font-size: 10px; }
-.change-diff-stats { flex: 0 0 auto; color: var(--text-secondary); font-size: 10px; }
+.change-row { border-bottom: 1px solid var(--glass-border); }
+.change-entry { display: flex; align-items: center; min-height: 46px; padding: 0 var(--space-2) 0 var(--space-3); }
+.change-main { display: flex; align-items: center; gap: var(--space-2); min-width: 0; flex: 1; padding: var(--space-2) 0; border: 0; color: var(--text-primary); background: transparent; cursor: pointer; text-align: left; }
+.change-main:hover { color: var(--accent); }
+.file-icon { flex: 0 0 auto; color: var(--accent); }
+.file-copy { display: flex; flex: 1; min-width: 0; align-items: baseline; gap: var(--space-2); }
+.file-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 14px 'Cascadia Code', Consolas, monospace; font-weight: 600; }
+.file-copy small { overflow: hidden; color: var(--text-faint); text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.change-stats { display: flex; gap: var(--space-2); flex: 0 0 auto; font: 13px 'Cascadia Code', Consolas, monospace; }
 .change-add { color: var(--diff-add); font-weight: 500; }
 .change-remove { color: var(--diff-remove); font-weight: 500; }
+.entry-chevron { flex: 0 0 auto; color: var(--text-faint); transition: transform 160ms ease; }
+.entry-chevron.open { transform: rotate(90deg); }
+.change-toolbar { display: flex; align-items: center; gap: var(--space-1); flex: 0 0 auto; }
+.change-count { color: var(--text-faint); font-size: 11px; white-space: nowrap; }
+.change-diff { margin: 0 var(--space-3) var(--space-3); border: 1px solid var(--glass-border); }
 </style>

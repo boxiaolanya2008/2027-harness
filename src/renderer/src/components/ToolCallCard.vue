@@ -222,6 +222,12 @@ const diffStats = computed(() => diffSnapshot.value
 .tool-card--error .tool-state {
   color: #ef6b73;
 }
+.tool-card :deep(.diff-view) {
+  margin: 0;
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+}
 @keyframes tool-spin {
   to { transform: rotate(360deg); }
 }

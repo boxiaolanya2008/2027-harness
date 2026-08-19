@@ -1,4 +1,16 @@
 export type ComposerMode = 'coding' | 'thinking' | 'security'
+export type ReasoningEffort = 'low' | 'medium' | 'high'
+
+export interface ModeModelPreset {
+  model?: string
+  temperature?: number
+  reasoningEffort?: ReasoningEffort
+}
+
+export interface RequestCapabilities {
+  temperature?: boolean
+  reasoningEffort?: boolean
+}
 export interface ComposerAttachment {
   id: string
   name: string
@@ -13,6 +25,8 @@ export interface Settings {
   apiBaseUrl: string
   model: string
   models?: string[]
+  modePresets?: Partial<Record<ComposerMode, ModeModelPreset>>
+  requestCapabilities?: RequestCapabilities
 }
 
 export type Role = 'user' | 'assistant'
