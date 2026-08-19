@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { join } from 'node:path'
@@ -41,6 +41,18 @@ function createWindow() {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
   win.setMenuBarVisibility(false)
+
+  // External http(s) links open in the system browser instead of a new in-app window.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:/i.test(url)) void shell.openExternal(url)
+    return { action: 'deny' }
+  })
+  win.webContents.on('will-navigate', (event, url) => {
+    if (/^https?:/i.test(url) && url !== win.webContents.getURL()) {
+      event.preventDefault()
+      void shell.openExternal(url)
+    }
+  })
 }
 
 function registerIpc() {
@@ -204,12 +216,13 @@ function registerIpc() {
   ipcMain.handle('changes:restoreBatch', (_e, request: unknown) => changes.restoreBatch(request))
 
   ipcMain.handle('shell:run', async (event, cwd: string, command: string, args: string[], context?: unknown) => {
-    if (context !== undefined && parseWriteContext(context) === null) throw new Error('Invalid shell context')
-    const before = context ? await snapshotWorkspace(cwd) : undefined
+    const parsedContext = context === undefined ? undefined : parseWriteContext(context)
+    if (context !== undefined && parsedContext === null) throw new Error('Invalid shell context')
+    const before = parsedContext ? await snapshotWorkspace(cwd) : undefined
     let output = ''
     const result = await runCommand(cwd, command, args, (chunk) => {
       output += chunk
-      event.sender.send('shell:output', chunk)
+      event.sender.send('shell:output', { toolCallId: parsedContext?.toolCallId, chunk })
     })
     if (context && before) {
       const after = await snapshotWorkspace(cwd)

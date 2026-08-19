@@ -65,6 +65,10 @@ function resultFor(event: ToolCallEvent): string | undefined {
   return result?.error ?? result?.content
 }
 
+function liveOutputFor(event: ToolCallEvent): string | undefined {
+  return resultEventFor(event)?.liveOutput
+}
+
 const callIds = computed(() => new Set(orderedEvents.value
   .filter((event): event is ToolCallEvent => event.type === 'tool_call')
   .map((event) => event.callId)))
@@ -117,6 +121,7 @@ function showOrphanResult(event: ToolResultEvent) {
         :call="callFor(event)"
         :raw-args="event.rawArgs"
         :result="resultFor(event)"
+        :live-output="liveOutputFor(event)"
         :file-edit-preview="event.fileEditPreview || event.writePreview"
       />
       <div v-else-if="event.type === 'status' && showStatus(event)" class="turn-status" :class="`turn-status--${event.state}`">

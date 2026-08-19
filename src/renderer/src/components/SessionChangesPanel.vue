@@ -5,6 +5,7 @@ import { Icon } from '@iconify/vue'
 import FileDiffView from './FileDiffView.vue'
 import { useChatStore } from '@/stores/chat'
 import { getDiffStats } from '@/utils/fileDiff'
+import { fileIcon } from '@/utils/fileIcon'
 
 type FileState = { exists: boolean; content: string | null; sha256: string | null; size: number }
 type Change = {
@@ -30,16 +31,6 @@ function fileName(path: string) {
 function parentPath(path: string) {
   const parts = path.split(/[\\/]/).filter(Boolean)
   return parts.length > 1 ? parts.slice(0, -1).join('/') : ''
-}
-
-function fileIcon(path: string) {
-  const ext = path.split('.').pop()?.toLowerCase()
-  if (['ts', 'tsx', 'js', 'jsx'].includes(ext || '')) return 'mdi:language-typescript'
-  if (['vue'].includes(ext || '')) return 'mdi:vuejs'
-  if (['css', 'scss', 'less'].includes(ext || '')) return 'mdi:language-css3'
-  if (['md', 'markdown'].includes(ext || '')) return 'mdi:language-markdown'
-  if (['json', 'yml', 'yaml', 'xml'].includes(ext || '')) return 'mdi:code-json'
-  return 'mdi:file-outline'
 }
 
 const stats = computed(() => changes.value.reduce((sum, change) => {

@@ -190,8 +190,8 @@ const api = {
   shell: {
     run: (cwd: string, command: string, args: string[], context?: ChangeContext) =>
       ipcRenderer.invoke('shell:run', cwd, command, args, context),
-    onOutput: (cb: (chunk: string) => void) => {
-      const listener = (_e: unknown, chunk: string) => cb(chunk)
+    onOutput: (cb: (payload: { toolCallId?: string; chunk: string }) => void) => {
+      const listener = (_e: unknown, payload: { toolCallId?: string; chunk: string }) => cb(payload)
       ipcRenderer.on('shell:output', listener)
       return () => ipcRenderer.removeListener('shell:output', listener)
     }

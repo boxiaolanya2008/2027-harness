@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import { getDiffStats, makeDiffRows } from '@/utils/fileDiff'
+import { fileIcon } from '@/utils/fileIcon'
 
 const props = withDefaults(defineProps<{
   before?: string | null
@@ -76,7 +77,7 @@ const hasChanges = computed(() => diffRows.value.some((row) => row.kind !== 'con
   <section class="diff-view" :class="{ 'diff-view--empty': !hasChanges, 'diff-view--no-header': hideHeader }">
     <button v-if="!hideHeader" class="diff-head" type="button" :aria-expanded="expanded" @click="expanded = !expanded">
       <span class="diff-file">
-        <Icon icon="mdi:file-document-edit-outline" width="17" />
+        <Icon :icon="fileIcon(path)" width="17" />
         <span class="diff-operation">{{ operationLabel }}</span>
         <code v-if="path" class="diff-path">{{ path }}</code>
       </span>
@@ -98,8 +99,7 @@ const hasChanges = computed(() => diffRows.value.some((row) => row.kind !== 'con
             <span>展开</span>
           </button>
           <div v-else class="diff-row" :class="`diff-row--${item.row.kind}`">
-            <span class="diff-line-number">{{ item.row.beforeLine ?? '' }}</span>
-            <span class="diff-line-number">{{ item.row.afterLine ?? '' }}</span>
+            <span class="diff-line-number">{{ item.row.afterLine ?? item.row.beforeLine ?? '' }}</span>
             <span class="diff-marker">{{ item.row.kind === 'addition' ? '+' : item.row.kind === 'deletion' ? '-' : ' ' }}</span>
             <code class="diff-text">{{ item.row.text || ' ' }}</code>
           </div>
@@ -145,9 +145,9 @@ const hasChanges = computed(() => diffRows.value.some((row) => row.kind !== 'con
 .diff-view--no-header .diff-body { border-top: 0; }
 .diff-code { min-width: max-content; }
 .diff-row {
-  --line-number-width: 28px;
+  --line-number-width: 36px;
   display: grid;
-  grid-template-columns: var(--line-number-width) var(--line-number-width) 14px minmax(max-content, 1fr);
+  grid-template-columns: var(--line-number-width) 14px minmax(max-content, 1fr);
   min-width: max-content;
   line-height: 1.62;
   font-size: 12px;
@@ -168,9 +168,9 @@ const hasChanges = computed(() => diffRows.value.some((row) => row.kind !== 'con
 .diff-row--deletion { background: var(--diff-remove-bg); }
 .diff-row--deletion .diff-marker, .diff-row--deletion .diff-text { color: var(--diff-remove); }
 .diff-fold {
-  --line-number-width: 28px;
+  --line-number-width: 36px;
   display: grid;
-  grid-template-columns: calc(var(--line-number-width) * 2) 14px minmax(max-content, 1fr) auto;
+  grid-template-columns: var(--line-number-width) 14px minmax(max-content, 1fr) auto;
   align-items: center;
   width: 100%;
   min-width: max-content;

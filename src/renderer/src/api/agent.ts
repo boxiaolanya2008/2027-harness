@@ -21,6 +21,26 @@ function isMissingFileError(error: unknown) {
   return /\bENOENT\b|no such file/i.test(message)
 }
 
+function createAnsiNormalizer() {
+  let pending = ''
+  const strip = (value: string, final = false) => {
+    let text = `${pending}${value}`.replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    pending = ''
+    const lastEscape = text.lastIndexOf('\u001b')
+    if (!final && lastEscape >= 0 && !/[A-Za-z\\~]/.test(text.slice(lastEscape + 1))) {
+      pending = text.slice(lastEscape)
+      text = text.slice(0, lastEscape)
+    }
+    return text.replace(/\u001b\][\s\S]*?(?:\u0007|\u001b\\\\)/g, '').replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '').replace(/\u001b[()][0-9A-Za-z]/g, '')
+  }
+  return { strip, flush: () => strip('', true) }
+}
+
+function appendBoundedOutput(current: string, chunk: string, limit = 256 * 1024) {
+  const next = current + chunk
+  return next.length > limit ? `[输出已截断，仅保留最后 ${limit / 1024} KiB]\n${next.slice(-limit)}` : next
+}
+
 // This read occurs immediately before file mutation and never fabricates an after state.
 async function preflightFileEditPreview(
   workspace: string,
@@ -247,6 +267,25 @@ export async function runAgent(
         status: 'running'
       })
 
+      let liveOutput = ''
+      const ansi = createAnsiNormalizer()
+      const unsubscribe = name === 'run_command'
+        ? window.api.shell.onOutput(({ toolCallId, chunk }) => {
+          if (toolCallId !== call.callId) return
+          const clean = ansi.strip(chunk)
+          if (!clean) return
+          liveOutput = appendBoundedOutput(liveOutput, clean)
+          emit({
+            type: 'tool_result',
+            callId: call.callId,
+            providerCallId: call.providerCallId,
+            name,
+            status: 'running',
+            liveOutput
+          })
+        })
+        : undefined
+
       let content: string
       let failure: string | undefined
       if (call.error) {
@@ -264,9 +303,16 @@ export async function runAgent(
         } catch (error) {
           failure = (error as Error).message || String(error)
           content = `错误: ${failure}`
+        } finally {
+          if (unsubscribe) {
+            const trailing = ansi.flush()
+            if (trailing) liveOutput = appendBoundedOutput(liveOutput, trailing)
+            unsubscribe()
+          }
         }
       }
 
+      if (name === 'run_command') content = content.replace(/\u001b\][\s\S]*?(?:\u0007|\u001b\\\\)/g, '').replace(/\u001b\[[0-?]*[ -/]*[@-~]/g, '').replace(/\u001b[()][0-9A-Za-z]/g, '')
       if (changedState(name, content, Boolean(failure))) stateVersion += 1
       emit({
         type: 'tool_result',

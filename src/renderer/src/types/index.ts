@@ -92,6 +92,7 @@ export interface ToolResultEvent extends TurnEventBase {
   name: string
   status: ToolCallStatus
   content?: string
+  liveOutput?: string
   error?: string
 }
 

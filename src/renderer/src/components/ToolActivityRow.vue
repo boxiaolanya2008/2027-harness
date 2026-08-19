@@ -3,6 +3,7 @@ import { computed, ref, watch } from 'vue'
 import { Icon } from '@iconify/vue'
 import FileDiffView from './FileDiffView.vue'
 import { getDiffStats } from '@/utils/fileDiff'
+import { fileIcon } from '@/utils/fileIcon'
 import type { FileEditPreview, ToolCall } from '@/types'
 
 interface FileSnapshot {
@@ -16,10 +17,12 @@ const props = withDefaults(defineProps<{
   call: ToolCall
   rawArgs?: string
   result?: string
+  liveOutput?: string
   fileEditPreview?: FileEditPreview
 }>(), {
   rawArgs: undefined,
   result: undefined,
+  liveOutput: undefined,
   fileEditPreview: undefined
 })
 
@@ -40,6 +43,16 @@ const isFileEdit = computed(() => ['write_file', 'incrementally_edit'].includes(
 const isListDir = computed(() => props.call.name === 'list_dir')
 const filePath = computed(() => typeof props.call.args?.path === 'string' ? props.call.args.path : '')
 const showResult = computed(() => (props.call.name === 'run_command' || !isListDir.value) && (props.call.name === 'run_command' || state.value === 'error'))
+const displayedOutput = computed(() => state.value === 'running' && props.liveOutput !== undefined ? props.liveOutput : output.value)
+const writeStateLabel = computed(() => {
+  if (!isFileEdit.value) return stateLabel.value
+  if (state.value === 'running') return diffSnapshot.value?.preview ? '准备写入' : '写入中'
+  return stateLabel.value
+})
+
+watch(() => props.liveOutput, (chunk) => {
+  if (chunk && props.call.name === 'run_command') open.value = true
+})
 
 const parsedDirectoryItems = computed(() => {
   if (!isListDir.value || !output.value) return []
@@ -51,7 +64,7 @@ const parsedDirectoryItems = computed(() => {
       const isDir = line.startsWith('[d]')
       const isFile = line.startsWith('[f]')
       const name = (isDir || isFile) ? line.slice(3).trim() : line
-      return { isDir, name }
+      return { isDir, name, icon: fileIcon(name, isDir) }
     })
 })
 
@@ -138,7 +151,7 @@ const diffStats = computed(() => diffSnapshot.value
       <code class="tool-name">{{ call.name || 'unknown_tool' }}</code>
       <code v-if="isFileEdit && filePath" class="tool-path">{{ filePath }}</code>
       <code v-else-if="isListDir" class="tool-path">{{ (call.args?.path as string) || '.' }}</code>
-      <span class="tool-state">{{ diffSnapshot?.preview && state === 'running' ? '准备写入' : stateLabel }}</span>
+      <span class="tool-state">{{ writeStateLabel }}</span>
       <span v-if="diffStats" class="tool-diff-summary">
         <span class="diff-add">+{{ diffStats.additions }}</span>
         <span class="diff-del">−{{ diffStats.deletions }}</span>
@@ -159,7 +172,7 @@ const diffStats = computed(() => diffSnapshot.value
           </div>
           <div class="dir-grid">
             <div v-for="item in parsedDirectoryItems" :key="item.name" class="dir-item" :class="{ 'dir-item--dir': item.isDir }">
-              <Icon :icon="item.isDir ? 'mdi:folder' : 'mdi:file-outline'" width="15" />
+              <Icon :icon="item.icon" width="15" />
               <span>{{ item.name }}</span>
             </div>
           </div>
@@ -175,9 +188,9 @@ const diffStats = computed(() => diffSnapshot.value
           :hide-header="true"
         />
       </section>
-      <section v-if="showResult && output !== undefined" class="tool-detail-section">
-        <span class="tool-detail-label">{{ state === 'error' ? '错误详情' : '工具结果' }}</span>
-        <pre class="tool-code tool-result">{{ output }}</pre>
+      <section v-if="showResult && displayedOutput !== undefined" class="tool-detail-section">
+        <span class="tool-detail-label">{{ state === 'running' ? '实时输出' : state === 'error' ? '错误详情' : '工具结果' }}</span>
+        <pre class="tool-code tool-result" :class="{ 'tool-result--live': state === 'running' }">{{ displayedOutput || '等待输出…' }}</pre>
       </section>
     </div>
   </article>
