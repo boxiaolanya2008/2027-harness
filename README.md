@@ -5,7 +5,6 @@
 ## 特性
 
 - **自主编码 Agent**：给个任务，它自己规划 → 读文件 → 改代码 → 跑命令验证 → 迭代到完成。工具调用全程流式可见，可随时中止。
-- **本地仓库语义搜索（RAG）**：对工作区建索引（TF-IDF，中文英文都支持），「问代码库」直接命中相关文件。
 - **一键生成并推送 PR**：git diff → AI 生成 commit message / PR title / body → 建分支 → 提交 → 推送 → 开 PR。
 - **GitHub 集成**：PR / Issue 管理、提交时间线可视化、每个条目一键 AI 总结。
 - **多工作区**：选任意本地目录作为工作区，Agent 的所有文件 / shell / git 操作都限定在该目录内。
@@ -54,4 +53,3 @@ npm run dev
 
 - Agent 的 shell / git / fs 操作全部限定在工作区内，越界会被拒绝。
 - 「一键 PR」依赖 remote origin 指向 GitHub；推送前请确认分支与仓库权限。
-- RAG 索引默认存到工作区根目录的 `.super-agent-index.json`，已加入 `.gitignore`。

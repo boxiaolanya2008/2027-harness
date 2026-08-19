@@ -14,7 +14,6 @@ const theme = useThemeStore()
 
 const apiBaseUrl = ref(settings.settings.apiBaseUrl)
 const model = ref(settings.settings.model)
-const embeddingModel = ref(settings.settings.embeddingModel)
 const apiKey = ref('')
 const githubToken = ref('')
 const testing = ref(false)
@@ -80,7 +79,6 @@ async function save() {
   try {
     settings.settings.apiBaseUrl = apiBaseUrl.value.trim()
     settings.settings.model = model.value.trim()
-    settings.settings.embeddingModel = embeddingModel.value.trim() || 'text-embedding-3-small'
     settings.persist()
     if (apiKey.value) await settings.setAiKey(apiKey.value)
     if (githubToken.value) await settings.setGithubToken(githubToken.value)
@@ -117,9 +115,6 @@ async function save() {
         </el-form-item>
         <el-form-item label="模型 Model">
           <el-input v-model="model" placeholder="deepseek-chat / gpt-4o / ..." />
-        </el-form-item>
-        <el-form-item label="Embedding 模型">
-          <el-input v-model="embeddingModel" placeholder="text-embedding-3-small" />
         </el-form-item>
         <el-form-item label="API Key" class="wide">
           <el-input v-model="apiKey" type="password" show-password :placeholder="settings.hasAiKey ? '已保存；输入新值可替换' : 'sk-...'" />

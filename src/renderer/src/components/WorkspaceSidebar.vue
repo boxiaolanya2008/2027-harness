@@ -1,103 +1,140 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { Icon } from '@iconify/vue'
-import { ElMessage } from 'element-plus'
+import EmptyState from '@/components/EmptyState.vue'
 import { useChatStore } from '@/stores/chat'
-import { useIndexerStore } from '@/stores/indexer'
-import type { SearchHit } from '@/types'
 
 const chat = useChatStore()
-const indexer = useIndexerStore()
-const query = ref('')
-const workspaceName = computed(() => chat.workspace?.split(/[\\/]/).filter(Boolean).pop() || '未选择工作区')
+const workspaceName = computed(() => chat.workspace?.split(/[\\/]/).filter(Boolean).pop() || '选择工作区')
+const recentConversations = computed(() => [...chat.conversations].sort((left, right) => {
+  const leftTime = left.updatedAt || left.createdAt
+  const rightTime = right.updatedAt || right.createdAt
+  return rightTime - leftTime
+}))
 
 async function pickWorkspace() {
   const path = await window.api.dialog.pickDir()
   if (!path) return
   await chat.selectWorkspace(path)
-  await indexer.check(path)
 }
 
-async function buildIndex() {
-  if (!chat.workspace) return
-  await indexer.build(chat.workspace)
-  ElMessage.success(`索引完成：${indexer.fileCount} 个文件`)
-}
-
-async function searchCodebase() {
-  if (!chat.workspace || !query.value.trim()) return
-  await indexer.search(chat.workspace, query.value.trim())
-}
-
-function useHit(hit: SearchHit) {
-  chat.sendPrompt(`（代码库检索结果）\n文件：${hit.file}\n\n\`\`\`\n${hit.snippet.slice(0, 1600)}\n\`\`\`\n\n请结合这段代码回答我的问题。`)
+function formatConversationTime(conversation: { updatedAt?: number; createdAt: number }) {
+  const timestamp = conversation.updatedAt || conversation.createdAt
+  const date = new Date(timestamp)
+  const now = new Date()
+  const sameDay = date.toDateString() === now.toDateString()
+  return new Intl.DateTimeFormat('zh-CN', sameDay ? { hour: '2-digit', minute: '2-digit' } : { month: '2-digit', day: '2-digit' }).format(date)
 }
 </script>
 
 <template>
-  <section class="workspace-section">
-    <div class="section-head">
-      <span>工作区</span>
-      <button title="选择目录" @click="pickWorkspace"><Icon icon="mdi:folder-plus-outline" width="17" /></button>
-    </div>
+  <section class="workspace-sidebar">
+    <div class="workspace-section">
+      <div class="section-head">
+        <span>工作区</span>
+        <button title="选择目录" @click="pickWorkspace"><Icon icon="mdi:folder-plus-outline" width="17" /></button>
+      </div>
 
-    <div class="workspace-list">
-      <button
-        v-for="path in chat.workspaces"
-        :key="path"
-        class="workspace-row"
-        :class="{ active: path === chat.workspace }"
-        :title="path"
-        @click="chat.selectWorkspace(path); indexer.check(path)"
-      >
-        <Icon icon="mdi:folder-open-outline" width="16" />
-        <span>{{ path.split(/[\\/]/).filter(Boolean).pop() }}</span>
+      <button class="workspace-heading" :title="chat.workspace || '选择工作区'" @click="pickWorkspace">
+        <Icon icon="mdi:folder-open-outline" width="18" />
+        <span class="workspace-heading-copy">
+          <strong>{{ workspaceName }}</strong>
+          <small>{{ chat.workspace || '选择本地目录开始任务' }}</small>
+        </span>
+        <Icon class="workspace-heading-action" icon="mdi:chevron-right" width="16" />
       </button>
-      <button v-if="!chat.workspaces.length" class="workspace-empty" @click="pickWorkspace">
-        <Icon icon="mdi:folder-plus-outline" width="16" /> 选择本地目录
-      </button>
-    </div>
 
-    <template v-if="chat.workspace">
-      <div class="workspace-current" :title="chat.workspace">{{ workspaceName }}</div>
-      <div class="index-actions">
-        <button @click="buildIndex" :disabled="indexer.indexing">
-          <Icon :icon="indexer.indexing ? 'mdi:loading' : 'mdi:folder-open-outline'" width="15" />
-          {{ indexer.hasIndex ? '重建索引' : '建立索引' }}
+      <div class="workspace-list" aria-label="最近工作区">
+        <button
+          v-for="path in chat.workspaces"
+          :key="path"
+          class="workspace-row"
+          :class="{ active: path === chat.workspace }"
+          :title="path"
+          @click="chat.selectWorkspace(path)"
+        >
+          <Icon icon="mdi:folder-open-outline" width="16" />
+          <span>{{ path.split(/[\\/]/).filter(Boolean).pop() }}</span>
+        </button>
+        <button v-if="!chat.workspaces.length" class="workspace-empty" @click="pickWorkspace">
+          <Icon icon="mdi:folder-plus-outline" width="16" /> 选择本地目录
         </button>
       </div>
-      <div v-if="indexer.hasIndex" class="code-search">
-        <el-input v-model="query" size="small" placeholder="搜索代码库" @keyup.enter="searchCodebase">
-          <template #prefix><Icon icon="mdi:magnify" width="15" /></template>
-        </el-input>
-        <div v-if="indexer.hits.length" class="search-hits">
-          <button v-for="hit in indexer.hits.slice(0, 4)" :key="`${hit.file}-${hit.score}`" :title="hit.file" @click="useHit(hit)">
-            <span>{{ hit.file }}</span>
-            <small>{{ hit.snippet.replace(/\s+/g, ' ').slice(0, 70) }}</small>
-          </button>
-        </div>
+    </div>
+
+    <section class="conversation-section">
+      <div class="section-head conversation-heading">
+        <span>最近任务</span>
+        <span class="conversation-count">{{ recentConversations.length }}</span>
       </div>
-    </template>
+      <div class="conversation-list">
+        <button
+          v-for="conversation in recentConversations"
+          :key="conversation.id"
+          class="conversation-row"
+          :class="{ active: conversation.id === chat.currentId }"
+          @click="chat.select(conversation.id)"
+        >
+          <Icon class="conversation-icon" icon="mdi:message-text-outline" width="16" />
+          <span class="conversation-copy">
+            <strong>{{ conversation.title }}</strong>
+            <small>{{ formatConversationTime(conversation) }}</small>
+          </span>
+          <span class="conversation-actions">
+            <span class="conversation-time">{{ formatConversationTime(conversation) }}</span>
+            <span class="delete-action" title="删除任务" @click.stop="chat.remove(conversation.id)">
+              <Icon icon="mdi:delete-outline" width="15" />
+            </span>
+          </span>
+        </button>
+        <EmptyState v-if="!recentConversations.length && chat.hydrated" title="还没有任务" desc="新建任务后，会话会保存在本机。" />
+      </div>
+    </section>
+
+    <div class="sidebar-footer">
+      <button class="new-task" @click="chat.newConversation()">
+        <Icon icon="mdi:plus" width="18" />
+        <span>新建任务</span>
+      </button>
+    </div>
   </section>
 </template>
 
 <style scoped>
-.workspace-section { padding: 16px 12px 12px; border-bottom: 1px solid var(--glass-border); }
+.workspace-sidebar { display: flex; flex: 1; min-height: 0; flex-direction: column; overflow: hidden; }
+.workspace-section { flex: 0 0 auto; padding: 16px 12px 12px; border-bottom: 1px solid var(--glass-border); }
 .section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; color: var(--text-secondary); font-size: 12px; font-weight: 700; }
-.section-head button, .index-actions button { display: inline-flex; align-items: center; gap: 5px; border: 0; color: var(--text-secondary); background: transparent; cursor: pointer; }
-.section-head button:hover, .index-actions button:hover { color: var(--accent); }
-.workspace-list { display: flex; flex-direction: column; gap: 2px; max-height: 116px; overflow: auto; }
-.workspace-row, .workspace-empty { width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 0; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; text-align: left; cursor: pointer; font-size: 13px; }
+.section-head button { display: inline-flex; align-items: center; gap: 5px; border: 0; color: var(--text-secondary); background: transparent; cursor: pointer; }
+.section-head button:hover { color: var(--accent); }
+.workspace-heading { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 8px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); color: var(--text-primary); background: var(--surface-bg); text-align: left; cursor: pointer; }
+.workspace-heading:hover { border-color: var(--accent); background: var(--hover-bg); }
+.workspace-heading-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+.workspace-heading-copy strong, .workspace-heading-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-heading-copy strong { font-size: 13px; font-weight: 600; }
+.workspace-heading-copy small { color: var(--text-faint); font-size: 10px; }
+.workspace-heading-action { flex: 0 0 auto; color: var(--text-faint); }
+.workspace-list { display: flex; flex-direction: column; gap: 2px; max-height: 116px; margin-top: 8px; overflow: auto; }
+.workspace-row, .workspace-empty { width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 0; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; text-align: left; cursor: pointer; font-size: 12px; }
 .workspace-row span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .workspace-row:hover, .workspace-empty:hover { color: var(--text-primary); background: var(--hover-bg); }
 .workspace-row.active { color: var(--text-primary); background: var(--selected-bg); }
-.workspace-current { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 10px 8px 6px; color: var(--text-faint); font-size: 11px; }
-.index-actions { margin: 0 4px 10px; }
-.index-actions button:disabled { opacity: 0.55; cursor: default; }
-.code-search { padding-top: 2px; }
-.search-hits { display: flex; flex-direction: column; gap: 2px; margin-top: 6px; }
-.search-hits button { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 6px 8px; border: 0; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; text-align: left; cursor: pointer; }
-.search-hits button:hover { background: var(--hover-bg); }
-.search-hits span { overflow: hidden; color: var(--accent); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.search-hits small { overflow: hidden; color: var(--text-faint); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.conversation-section { display: flex; flex: 1; min-height: 0; flex-direction: column; padding: 14px 8px 8px; }
+.conversation-heading { padding: 0 5px 8px; margin-bottom: 0; }
+.conversation-count { color: var(--text-faint); font-size: 11px; font-weight: 500; }
+.conversation-list { min-height: 0; flex: 1; overflow-y: auto; }
+.conversation-row { position: relative; display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 8px; border: 0; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; cursor: pointer; text-align: left; font-size: 13px; }
+.conversation-row:hover { background: var(--hover-bg); color: var(--text-primary); }
+.conversation-row.active { color: var(--text-primary); background: var(--selected-bg); }
+.conversation-icon { flex: 0 0 auto; color: var(--text-faint); }
+.conversation-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
+.conversation-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 500; }
+.conversation-copy small { color: var(--text-faint); font-size: 10px; }
+.conversation-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 3px; color: var(--text-faint); }
+.conversation-time { font-size: 10px; }
+.delete-action { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 5px; opacity: 0; }
+.conversation-row:hover .delete-action, .conversation-row:focus-visible .delete-action { opacity: 1; }
+.delete-action:hover { color: var(--danger, #d9534f); background: var(--selected-bg); }
+.sidebar-footer { flex: 0 0 auto; padding: 10px 12px 14px; border-top: 1px solid var(--glass-border); background: var(--panel-bg); }
+.new-task { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 9px 12px; border: 1px solid var(--accent); border-radius: var(--radius-sm); color: var(--accent-contrast, #fff); background: var(--accent); cursor: pointer; font-size: 13px; font-weight: 600; }
+.new-task:hover { filter: brightness(0.96); }
 </style>

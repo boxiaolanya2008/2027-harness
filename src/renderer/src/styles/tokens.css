@@ -32,6 +32,13 @@ html[data-theme='light'] {
   --accent: #2563eb;
   --accent-2: #2563eb;
   --focus-ring: rgba(37, 99, 235, 0.24);
+  --diff-surface: #f1f2f4;
+  --diff-add-bg: rgba(46, 160, 67, 0.1);
+  --diff-remove-bg: rgba(207, 34, 46, 0.1);
+  --diff-add: #218739;
+  --diff-remove: #c4313d;
+  --tool-surface: #f0f1f3;
+  --tool-code-surface: #f7f8fa;
 }
 
 html[data-theme='dark'] {
@@ -49,6 +56,13 @@ html[data-theme='dark'] {
   --accent: #70a5ff;
   --accent-2: #70a5ff;
   --focus-ring: rgba(112, 165, 255, 0.28);
+  --diff-surface: #242830;
+  --diff-add-bg: rgba(48, 170, 97, 0.15);
+  --diff-remove-bg: rgba(220, 74, 82, 0.15);
+  --diff-add: #65ce8b;
+  --diff-remove: #f18b91;
+  --tool-surface: #272b33;
+  --tool-code-surface: #1b1e24;
 }
 
 .surface { background: var(--surface-bg); border: 1px solid var(--glass-border); }

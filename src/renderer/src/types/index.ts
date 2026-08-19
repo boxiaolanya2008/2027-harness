@@ -1,7 +1,6 @@
 export interface Settings {
   apiBaseUrl: string
   model: string
-  embeddingModel: string
 }
 
 export type Role = 'user' | 'assistant'
@@ -156,10 +155,4 @@ export interface Issue {
 export interface Commit {
   sha: string
   commit: { message: string; author: { name: string; date: string } }
-}
-
-export interface SearchHit {
-  file: string
-  score: number
-  snippet: string
 }

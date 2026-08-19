@@ -4,6 +4,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Icon } from '@iconify/vue'
 import FileDiffView from './FileDiffView.vue'
 import { useChatStore } from '@/stores/chat'
+import { getDiffStats, type DiffStats } from '@/utils/fileDiff'
 
 type FileState = { exists: boolean; content: string | null; sha256: string | null; size: number }
 type Change = {
@@ -23,10 +24,10 @@ const expanded = ref<string | null>(null)
 const forceNext = ref(false)
 
 const stats = computed(() => changes.value.reduce((sum, change) => {
-  const before = (change.before.content || '').split('\n').length
-  const after = (change.after.content || '').split('\n').length
-  return { files: sum.files + 1, delta: sum.delta + after - before }
-}, { files: 0, delta: 0 }))
+  const diff = getDiffStats(change.before.content, change.after.content)
+  return { files: sum.files + 1, additions: sum.additions + diff.additions, deletions: sum.deletions + diff.deletions }
+}, { files: 0, additions: 0, deletions: 0 }))
+const changeStats = (change: Change): DiffStats => getDiffStats(change.before.content, change.after.content)
 
 async function load() {
   if (!chat.currentId) {
@@ -99,7 +100,7 @@ onMounted(load)
 <template>
   <section class="changes-panel">
     <header class="changes-head">
-      <div><strong>会话改动</strong><span>{{ stats.files }} 个文件 · {{ stats.delta >= 0 ? '+' : '' }}{{ stats.delta }} 行</span></div>
+      <div><strong>会话改动</strong><span>{{ stats.files }} 个文件 · <b class="change-add">+{{ stats.additions }}</b> <b class="change-remove">-{{ stats.deletions }}</b></span></div>
       <div class="head-actions">
         <el-button text size="small" :disabled="chat.running" @click="rollbackLatest"><Icon icon="mdi:history" width="15" /> 回退最近一轮</el-button>
         <el-button text size="small" :disabled="!changes.length || chat.running" @click="restoreAll"><Icon icon="mdi:undo" width="15" /> 撤回全部</el-button>
@@ -113,6 +114,7 @@ onMounted(load)
           <Icon :icon="expanded === change.path ? 'mdi:chevron-down' : 'mdi:chevron-right'" width="16" />
           <span class="file-name">{{ change.path }}</span>
           <span class="file-op" :class="`file-op--${change.operation}`">{{ change.operation }}</span>
+          <span class="change-diff-stats">(+{{ changeStats(change).additions }} -{{ changeStats(change).deletions }})</span>
         </button>
         <div class="change-actions">
           <span class="change-count">{{ change.changeCount }} 次</span>
@@ -139,10 +141,13 @@ onMounted(load)
 .changes-state { padding: 28px 16px; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
 .change-list { overflow: auto; padding: 4px 12px 20px; }
 .change-row { padding: 10px 0; border-bottom: 1px solid var(--glass-border); }
-.change-main { display: inline-flex; align-items: center; max-width: calc(100% - 60px); gap: 5px; border: 0; color: var(--text-primary); background: transparent; cursor: pointer; text-align: left; }
-.file-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px 'Cascadia Code', Consolas, monospace; }
+.change-main { display: flex; align-items: center; width: calc(100% - 60px); gap: 5px; border: 0; color: var(--text-primary); background: transparent; cursor: pointer; text-align: left; }
+.file-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px 'Cascadia Code', Consolas, monospace; }
 .file-op { flex: 0 0 auto; font-size: 10px; color: var(--accent); }
 .file-op--delete { color: #d95757; }
 .change-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; margin-top: 4px; }
 .change-count { color: var(--text-faint); font-size: 10px; }
+.change-diff-stats { flex: 0 0 auto; color: var(--text-secondary); font-size: 10px; }
+.change-add { color: var(--diff-add); font-weight: 500; }
+.change-remove { color: var(--diff-remove); font-weight: 500; }
 </style>

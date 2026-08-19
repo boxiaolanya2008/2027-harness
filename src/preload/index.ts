@@ -158,11 +158,6 @@ const api = {
     get: (path: string) => ipcRenderer.invoke('gh:get', path),
     paged: (path: string) => ipcRenderer.invoke('gh:paged', path),
     post: (path: string, body?: any) => ipcRenderer.invoke('gh:post', path, body)
-  },
-  indexer: {
-    build: (root: string) => ipcRenderer.invoke('indexer:build', root),
-    cached: (root: string) => ipcRenderer.invoke('indexer:cached', root),
-    search: (root: string, query: string) => ipcRenderer.invoke('indexer:search', root, query)
   }
 }
 

@@ -5,7 +5,6 @@ import { runGit, runGitStreaming } from './ipc/git'
 import { readFileIn, writeFileIn, listDir, snapshotWorkspace, type FileState } from './ipc/fs'
 import { runCommand } from './ipc/shell'
 import { gh, ghPaginate } from './ipc/github'
-import { buildIndex, searchIndex, loadIndex, saveIndex } from './ipc/indexer'
 import { StateRepository } from './state/repository'
 import { ChangeJournal, parseWriteContext } from './state/change-journal'
 
@@ -115,18 +114,6 @@ function registerIpc() {
     gh(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined })
   )
 
-  // RAG
-  ipcMain.handle('indexer:build', (_e, root: string) => {
-    const idx = buildIndex(root)
-    saveIndex(idx)
-    return { files: idx.files.length, chunks: idx.chunks.length }
-  })
-  ipcMain.handle('indexer:cached', (_e, root: string) => !!loadIndex(root))
-  ipcMain.handle('indexer:search', (_e, root: string, query: string) => {
-    const idx = loadIndex(root)
-    if (!idx) return []
-    return searchIndex(idx, query)
-  })
 }
 
 app.whenReady().then(() => {

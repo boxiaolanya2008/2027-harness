@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import FileDiffView from './FileDiffView.vue'
+import { getDiffStats } from '@/utils/fileDiff'
 import type { ToolCall } from '@/types'
 
 interface FileSnapshot {
@@ -88,7 +89,7 @@ function parseSnapshot(raw: string | undefined): FileSnapshot | undefined {
 }
 
 const diffSnapshot = computed(() => {
-  if (props.call.name !== 'write_file' || state.value === 'error') return undefined
+  if (props.call.name !== 'write_file') return undefined
   const snapshot = parseSnapshot(output.value)
   if (!snapshot) return undefined
   const args = props.call.args || {}
@@ -98,14 +99,18 @@ const diffSnapshot = computed(() => {
     after: snapshot.after ?? asText(args.content)
   }
 })
+const diffStats = computed(() => diffSnapshot.value
+  ? getDiffStats(diffSnapshot.value.before, diffSnapshot.value.after)
+  : undefined)
 </script>
 
 <template>
-  <article class="tool-card" :class="`tool-card--${state}`">
+  <article class="tool-card" :class="[`tool-card--${state}`, { 'tool-card--write-file': call.name === 'write_file' }]">
     <header class="tool-head">
       <Icon class="tool-icon" :class="{ 'tool-icon--spinning': state === 'running' }" :icon="stateIcon" width="17" />
       <code class="tool-name">{{ call.name || 'unknown_tool' }}</code>
       <span class="tool-state">{{ stateLabel }}</span>
+      <span v-if="diffStats" class="tool-diff-summary">(+{{ diffStats.additions }} -{{ diffStats.deletions }})</span>
     </header>
 
     <button class="tool-toggle" type="button" :aria-expanded="detailsOpen" @click="detailsOpen = !detailsOpen">
@@ -170,6 +175,8 @@ const diffSnapshot = computed(() => {
   margin-left: auto;
   color: var(--text-faint);
 }
+.tool-diff-summary { color: var(--text-secondary); font-size: 11px; white-space: nowrap; }
+.tool-card--write-file { background: var(--tool-surface); }
 .tool-toggle {
   width: 100%;
   border: 0;
@@ -185,7 +192,7 @@ const diffSnapshot = computed(() => {
   font: inherit;
 }
 .tool-toggle:hover {
-  background: rgba(255, 255, 255, 0.035);
+  background: var(--hover-bg);
 }
 .tool-diff-toggle {
   color: var(--accent);
@@ -200,7 +207,7 @@ const diffSnapshot = computed(() => {
   overflow: auto;
   white-space: pre-wrap;
   word-break: break-word;
-  background: rgba(0, 0, 0, 0.2);
+  background: var(--tool-code-surface);
   color: var(--text-secondary);
   font-family: 'Cascadia Code', Consolas, monospace;
   font-size: 12px;

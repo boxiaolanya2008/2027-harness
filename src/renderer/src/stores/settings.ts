@@ -15,8 +15,7 @@ function load(): Settings {
 export const useSettingsStore = defineStore('settings', () => {
   const settings = ref<Settings>({
     apiBaseUrl: load().apiBaseUrl || 'https://api.openai.com/v1',
-    model: load().model || '',
-    embeddingModel: load().embeddingModel || 'text-embedding-3-small'
+    model: load().model || ''
   })
   const hasAiKey = ref(false)
   const hasGithubToken = ref(false)
@@ -32,7 +31,7 @@ export const useSettingsStore = defineStore('settings', () => {
   function persist() {
     localStorage.setItem(
       STORAGE_KEY,
-      JSON.stringify({ apiBaseUrl: settings.value.apiBaseUrl, model: settings.value.model, embeddingModel: settings.value.embeddingModel })
+      JSON.stringify({ apiBaseUrl: settings.value.apiBaseUrl, model: settings.value.model })
     )
   }
 
