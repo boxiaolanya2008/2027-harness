@@ -39,21 +39,25 @@ export const useChatStore = defineStore('chat', () => {
   const running = ref(false)
   const workspace = ref<string | null>(null)
   const workspaces = ref<string[]>([])
-  const rightPanelTab = ref('pr')
+  const rightPanelTab = ref('github')
   const selectedRepoFullName = ref<string | null>(null)
   const hydrated = ref(false)
   let abort: AbortController | null = null
-  let saveTimer: ReturnType<typeof setTimeout> | undefined
+  let activeRunId = 0
+  const saveTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
   const current = () => conversations.value.find((conversation) => conversation.id === currentId.value) || null
 
   function scheduleSave(conversation = current()) {
     if (!conversation) return
     conversation.updatedAt = Date.now()
-    clearTimeout(saveTimer)
-    saveTimer = setTimeout(() => {
+    const previousTimer = saveTimers.get(conversation.id)
+    if (previousTimer) clearTimeout(previousTimer)
+    const timer = setTimeout(() => {
+      saveTimers.delete(conversation!.id)
       void window.api.conversations.save(JSON.parse(JSON.stringify(conversation)))
     }, 180)
+    saveTimers.set(conversation.id, timer)
   }
 
   async function persistUiState() {
@@ -71,7 +75,7 @@ export const useChatStore = defineStore('chat', () => {
     const [summaries, ui] = await Promise.all([window.api.conversations.list(), window.api.state.load()])
     workspace.value = ui.selectedWorkspace
     workspaces.value = ui.recentWorkspaces || []
-    rightPanelTab.value = ui.rightPanelTab || 'pr'
+    rightPanelTab.value = ui.rightPanelTab === 'changes' ? 'changes' : 'github'
     selectedRepoFullName.value = typeof ui.repo?.full_name === 'string' ? ui.repo.full_name : null
     const loaded = await Promise.all(summaries.map((summary) => window.api.conversations.load(summary.id)))
     conversations.value = loaded.filter(Boolean).map(asConversation)
@@ -91,6 +95,7 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function newConversation() {
+    if (running.value) return current() || blankConversation(workspace.value || undefined)
     const conversation = blankConversation(workspace.value || undefined)
     conversations.value.unshift(conversation)
     currentId.value = conversation.id
@@ -99,11 +104,13 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   async function select(id: string) {
+    if (running.value) return
     currentId.value = id
     await persistUiState()
   }
 
   async function remove(id: string) {
+    if (running.value) return
     conversations.value = conversations.value.filter((conversation) => conversation.id !== id)
     await window.api.conversations.remove(id)
     if (currentId.value === id) currentId.value = conversations.value[0]?.id || null
@@ -176,26 +183,46 @@ export const useChatStore = defineStore('chat', () => {
     scheduleSave(conversation)
   }
 
-  async function sendPrompt(text: string) {
+  async function sendPrompt(text: string, options?: { existingUser?: Message }) {
     let conversation = current()
     if (!conversation) conversation = newConversation()
     if (!conversation.messages.length && text.length > 20) conversation.title = text.slice(0, 20)
-    const userMessage: Message = { id: uid(), role: 'user', content: text, createdAt: Date.now() }
-    conversation.messages.push(userMessage)
+    const historyBefore = conversation.protocolHistory || []
+    const userMessage = options?.existingUser || {
+      id: uid(),
+      role: 'user' as const,
+      content: text,
+      protocolUserIndex: historyBefore.length ? historyBefore.length : (workspace.value ? 1 : 0),
+      createdAt: Date.now()
+    }
+    if (!options?.existingUser) conversation.messages.push(userMessage)
     const assistantId = uid()
-    ensureAssistantMessage(conversation, assistantId)
+    const turnId = uid()
+    userMessage.turnId = turnId
+    const assistantMessage = ensureAssistantMessage(conversation, assistantId)
+    assistantMessage.turnId = turnId
     const ws = conversation.workspace || workspace.value || undefined
     running.value = true
+    const runId = ++activeRunId
     abort = new AbortController()
     scheduleSave(conversation)
 
     const emit = (event: AssistantTurnEvent) => {
+      if (runId !== activeRunId) return
       applyEvent(conversation!, assistantId, event)
     }
 
     try {
       if (ws) {
-        const result = await runAgent(useSettingsStore(), text, ws, emit, abort.signal, (conversation.protocolHistory || []) as any)
+        const result = await runAgent(
+          useSettingsStore(),
+          text,
+          ws,
+          emit,
+          abort.signal,
+          (conversation.protocolHistory || []) as any,
+          { conversationId: conversation.id, turnId }
+        )
         conversation.protocolHistory = result.history as ProviderHistoryMessage[]
       } else {
         const store = useSettingsStore()
@@ -218,10 +245,60 @@ export const useChatStore = defineStore('chat', () => {
       emit({ type: 'error', error: error.message || String(error), seq: 0, timestamp: Date.now() })
       emit({ type: 'status', state: 'failed', error: error.message || String(error), seq: 0, timestamp: Date.now() })
     } finally {
-      running.value = false
-      scheduleSave(conversation)
-      await window.api.conversations.save(JSON.parse(JSON.stringify(conversation)))
+      if (runId === activeRunId) {
+        running.value = false
+        scheduleSave(conversation)
+        await window.api.conversations.save(JSON.parse(JSON.stringify(conversation)))
+      }
     }
+  }
+
+  async function rollbackLatestTurn(force = false) {
+    if (running.value) throw new Error('Agent 正在运行，请等待当前任务结束')
+    const conversation = current()
+    if (!conversation) throw new Error('没有当前会话')
+    const assistant = [...conversation.messages].reverse().find((message) => message.role === 'assistant' && message.turnId)
+    if (!assistant?.turnId) throw new Error('当前会话没有可回退的 Agent 轮次')
+    const changes = await window.api.changes.list({ conversationId: conversation.id, turnId: assistant.turnId })
+    if (changes.length) await window.api.changes.restoreBatch({ changeIds: changes.map((change) => change.latestChangeId), force })
+    const userIndex = conversation.messages.findIndex((message) => message.turnId === assistant.turnId && message.role === 'user')
+    if (userIndex >= 0) {
+      const user = conversation.messages[userIndex]
+      conversation.messages = conversation.messages.slice(0, userIndex)
+      if (typeof user.protocolUserIndex === 'number') conversation.protocolHistory = (conversation.protocolHistory || []).slice(0, user.protocolUserIndex)
+    }
+    scheduleSave(conversation)
+    await window.api.conversations.save(JSON.parse(JSON.stringify(conversation)))
+    return changes.length
+  }
+
+  async function editAndRegenerate(messageId: string, nextText: string) {
+    if (running.value) throw new Error('Agent 正在运行，请等待当前任务结束')
+    const conversation = current()
+    const index = conversation?.messages.findIndex((message) => message.id === messageId) ?? -1
+    if (!conversation || index < 0 || conversation.messages[index].role !== 'user') throw new Error('只能编辑当前会话中的用户消息')
+    const text = nextText.trim()
+    if (!text) throw new Error('消息不能为空')
+
+    const target = conversation.messages[index]
+    const protocolIndex = typeof target.protocolUserIndex === 'number'
+      ? target.protocolUserIndex
+      : (() => {
+          const userOrdinal = conversation.messages.slice(0, index + 1).filter((message) => message.role === 'user').length - 1
+          let seen = 0
+          return (conversation.protocolHistory || []).findIndex((message) => {
+            if (message.role !== 'user') return false
+            if (seen === userOrdinal) return true
+            seen += 1
+            return false
+          })
+        })()
+    conversation.messages = conversation.messages.slice(0, index + 1)
+    target.content = text
+    conversation.protocolHistory = (conversation.protocolHistory || []).slice(0, Math.max(0, protocolIndex))
+    scheduleSave(conversation)
+    await window.api.conversations.save(JSON.parse(JSON.stringify(conversation)))
+    await sendPrompt(text, { existingUser: target })
   }
 
   return {
@@ -241,6 +318,8 @@ export const useChatStore = defineStore('chat', () => {
     select,
     remove,
     stop,
-    sendPrompt
+    sendPrompt,
+    editAndRegenerate,
+    rollbackLatestTurn
   }
 })

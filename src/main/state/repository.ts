@@ -98,7 +98,7 @@ function defaultUiState(): UiState {
     selectedWorkspace: null,
     recentWorkspaces: [],
     currentConversationId: null,
-    rightPanelTab: 'pr',
+    rightPanelTab: 'github',
     repo: null
   }
 }

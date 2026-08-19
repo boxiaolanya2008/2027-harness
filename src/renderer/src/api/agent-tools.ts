@@ -20,13 +20,18 @@ export const SYSTEM = `你是 Super-Agent，一个能直接操作本地代码仓
 - git_commit / git_new_branch / git_push 只在用户明确要求时才调用。
 - 用中文回答，简洁直接，给结论再给细节。`
 
-export async function execTool(workspace: string, name: string, args: Record<string, any>) {
+export async function execTool(
+  workspace: string,
+  name: string,
+  args: Record<string, any>,
+  context?: { conversationId: string; turnId: string; toolCallId: string }
+) {
   switch (name) {
     case 'read_file':
       return await window.api.fs.read(workspace, args.path)
     case 'write_file':
-      await window.api.fs.write(workspace, args.path, args.content)
-      return `已写入 ${args.path}`
+      const snapshot = await window.api.fs.write(workspace, args.path, args.content, context)
+      return JSON.stringify({ type: 'file_snapshot', ...snapshot })
     case 'list_dir': {
       const items = await window.api.fs.list(workspace, args.path || '.')
       return items.map((i: { type: string; path: string }) => `${i.type === 'dir' ? '[d]' : '[f]'} ${i.path}`).join('\n')
@@ -34,7 +39,7 @@ export async function execTool(workspace: string, name: string, args: Record<str
     case 'run_command': {
       const isWin = navigator.userAgent.includes('Windows')
       const [cmd, rest] = isWin ? ['cmd', ['/c', args.command]] : ['sh', ['-c', args.command]]
-      const out = await window.api.shell.run(workspace, cmd, rest)
+      const out = await window.api.shell.run(workspace, cmd, rest, context)
       return `exit=${out.code}\n${out.output || '(无输出)'}`
     }
     case 'git_status':

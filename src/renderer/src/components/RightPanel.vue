@@ -10,18 +10,20 @@ import { useChatStore } from '@/stores/chat'
 import { useGithubStore } from '@/stores/github'
 import { useSettingsStore } from '@/stores/settings'
 import { chatOnce } from '@/api/openai'
+import SessionChangesPanel from './SessionChangesPanel.vue'
 
 const chat = useChatStore()
 const github = useGithubStore()
 const settings = useSettingsStore()
 const tab = computed({
-  get: () => chat.rightPanelTab as 'pr' | 'issue' | 'commit',
-  set: (value: 'pr' | 'issue' | 'commit') => {
+  get: () => chat.rightPanelTab,
+  set: (value: string) => {
     chat.rightPanelTab = value
     void chat.persistUiState()
   }
 })
 const prBusy = ref(false)
+const repoTab = ref<'pr' | 'issue' | 'commit'>('pr')
 
 onMounted(async () => {
   if (!settings.hasGithubToken) return
@@ -89,78 +91,58 @@ async function oneClickPr() {
   <aside class="details-panel">
     <header class="details-head">
       <div>
-        <h2>GitHub</h2>
+        <h2>{{ tab === 'changes' ? '会话改动' : 'GitHub' }}</h2>
         <span v-if="github.identity">@{{ github.identity.login }}</span>
       </div>
       <Icon icon="mdi:github" width="18" />
     </header>
 
-    <EmptyState v-if="!settings.hasGithubToken" title="未连接 GitHub" desc="到设置页面配置 token 后，这里会显示真实仓库数据。" />
-
-    <template v-else>
-      <div class="repo-picker">
-        <el-select
-          v-model="github.currentRepo"
-          value-key="id"
-          placeholder="选择仓库"
-          filterable
-          @change="selectRepo"
-        >
-          <el-option v-for="repo in github.repos" :key="repo.id" :label="repo.full_name" :value="repo" />
-        </el-select>
-      </div>
-
-      <template v-if="github.currentRepo">
-        <el-tabs v-model="tab" class="repo-tabs" stretch>
-          <el-tab-pane label="PR" name="pr">
-            <SkeletonCard v-if="github.loading" :rows="3" />
-            <EmptyState v-else-if="!github.prs.length" title="没有 PR" desc="这个仓库还没有 pull request。" />
-            <div v-else class="repo-list">
-              <article v-for="pr in github.prs.slice(0, 30)" :key="pr.number" class="repo-row">
-                <div class="row-title">#{{ pr.number }} {{ pr.title }}</div>
-                <div class="row-meta">{{ pr.state }} · {{ dayjs(pr.created_at).format('MM-DD') }}</div>
-                <button class="ai-action" @click="summarize('PR', pr)"><Icon icon="mdi:robot-outline" width="14" /> AI 总结</button>
-              </article>
-            </div>
-          </el-tab-pane>
-
-          <el-tab-pane label="Issue" name="issue">
-            <SkeletonCard v-if="github.loading" :rows="3" />
-            <EmptyState v-else-if="!github.issues.length" title="没有 Issue" desc="这个仓库还没有 issue。" />
-            <div v-else class="repo-list">
-              <article v-for="issue in github.issues.slice(0, 30)" :key="issue.number" class="repo-row">
-                <div class="row-title">#{{ issue.number }} {{ issue.title }}</div>
-                <div class="row-meta">{{ issue.state }} · {{ dayjs(issue.created_at).format('MM-DD') }}</div>
-                <button class="ai-action" @click="summarize('Issue', issue)"><Icon icon="mdi:robot-outline" width="14" /> AI 总结</button>
-              </article>
-            </div>
-          </el-tab-pane>
-
-          <el-tab-pane label="提交" name="commit">
-            <SkeletonCard v-if="github.loading" :rows="3" />
-            <EmptyState v-else-if="!github.commits.length" title="没有提交" desc="这个仓库还没有可展示的提交。" />
-            <TimelineView
-              v-else
-              :nodes="github.commits.slice(0, 40).map((commit) => ({
-                id: commit.sha,
-                title: commit.commit.message.split('\n')[0],
-                subtitle: commit.commit.author.name,
-                time: commit.commit.author.date,
-                icon: 'mdi:source-commit'
-              }))"
-            />
-          </el-tab-pane>
-        </el-tabs>
-
-        <div class="detail-actions">
-          <el-button type="primary" :loading="prBusy" @click="oneClickPr">
-            <Icon icon="mdi:source-pull" width="15" /> 一键生成并推送 PR
-          </el-button>
-        </div>
-      </template>
-
-      <EmptyState v-else-if="!github.loading" title="选择一个仓库" desc="选择后可以查看 PR、Issue 和提交记录。" />
-    </template>
+    <el-tabs v-model="tab" class="detail-tabs" stretch>
+      <el-tab-pane label="GitHub" name="github">
+        <template v-if="settings.hasGithubToken">
+          <div class="repo-picker">
+            <el-select v-model="github.currentRepo" value-key="id" placeholder="选择仓库" filterable @change="selectRepo">
+              <el-option v-for="repo in github.repos" :key="repo.id" :label="repo.full_name" :value="repo" />
+            </el-select>
+          </div>
+          <template v-if="github.currentRepo">
+            <el-tabs v-model="repoTab" class="repo-tabs" stretch>
+              <el-tab-pane label="PR" name="pr">
+                <SkeletonCard v-if="github.loading" :rows="3" />
+                <EmptyState v-else-if="!github.prs.length" title="没有 PR" desc="这个仓库还没有 pull request。" />
+                <div v-else class="repo-list">
+                  <article v-for="pr in github.prs.slice(0, 30)" :key="pr.number" class="repo-row">
+                    <div class="row-title">#{{ pr.number }} {{ pr.title }}</div>
+                    <div class="row-meta">{{ pr.state }} · {{ dayjs(pr.created_at).format('MM-DD') }}</div>
+                    <button class="ai-action" @click="summarize('PR', pr)"><Icon icon="mdi:robot-outline" width="14" /> AI 总结</button>
+                  </article>
+                </div>
+              </el-tab-pane>
+              <el-tab-pane label="Issue" name="issue">
+                <SkeletonCard v-if="github.loading" :rows="3" />
+                <EmptyState v-else-if="!github.issues.length" title="没有 Issue" desc="这个仓库还没有 issue。" />
+                <div v-else class="repo-list">
+                  <article v-for="issue in github.issues.slice(0, 30)" :key="issue.number" class="repo-row">
+                    <div class="row-title">#{{ issue.number }} {{ issue.title }}</div>
+                    <div class="row-meta">{{ issue.state }} · {{ dayjs(issue.created_at).format('MM-DD') }}</div>
+                    <button class="ai-action" @click="summarize('Issue', issue)"><Icon icon="mdi:robot-outline" width="14" /> AI 总结</button>
+                  </article>
+                </div>
+              </el-tab-pane>
+              <el-tab-pane label="提交" name="commit">
+                <SkeletonCard v-if="github.loading" :rows="3" />
+                <EmptyState v-else-if="!github.commits.length" title="没有提交" desc="这个仓库还没有可展示的提交。" />
+                <TimelineView v-else :nodes="github.commits.slice(0, 40).map((commit) => ({ id: commit.sha, title: commit.commit.message.split('\n')[0], subtitle: commit.commit.author.name, time: commit.commit.author.date, icon: 'mdi:source-commit' }))" />
+              </el-tab-pane>
+            </el-tabs>
+            <div class="detail-actions"><el-button type="primary" :loading="prBusy" @click="oneClickPr"><Icon icon="mdi:source-pull" width="15" /> 一键生成并推送 PR</el-button></div>
+          </template>
+          <EmptyState v-else-if="!github.loading" title="选择一个仓库" desc="选择后可以查看 PR、Issue 和提交记录。" />
+        </template>
+        <EmptyState v-else title="未连接 GitHub" desc="到设置页面配置 token 后，这里会显示真实仓库数据。" />
+      </el-tab-pane>
+      <el-tab-pane label="会话改动" name="changes"><SessionChangesPanel /></el-tab-pane>
+    </el-tabs>
   </aside>
 </template>
 

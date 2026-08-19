@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { Icon } from '@iconify/vue'
+import FileDiffView from './FileDiffView.vue'
 import type { ToolCall } from '@/types'
+
+interface FileSnapshot {
+  before: string | null
+  after: string | null
+  path: string
+  operation: string
+}
 
 const props = withDefaults(defineProps<{
   call: ToolCall
@@ -14,6 +22,7 @@ const props = withDefaults(defineProps<{
 
 const detailsOpen = ref(false)
 const resultOpen = ref(false)
+const diffOpen = ref(false)
 const rawArguments = computed(() => {
   if (props.rawArgs !== undefined) return props.rawArgs
   const args = props.call.args
@@ -28,6 +37,67 @@ const output = computed(() => props.result ?? props.call.result)
 const state = computed(() => props.call.status || 'running')
 const stateLabel = computed(() => ({ running: '运行中', done: '已完成', error: '失败' }[state.value] || state.value))
 const stateIcon = computed(() => ({ running: 'mdi:loading', done: 'mdi:check-circle', error: 'mdi:alert-circle' }[state.value] || 'mdi:tools'))
+
+function asText(value: unknown): string | null {
+  return typeof value === 'string' ? value : value == null ? null : String(value)
+}
+
+function stateContent(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined
+  if (value === null || typeof value === 'string') return value
+  if (typeof value === 'object' && !Array.isArray(value)) {
+    const state = value as Record<string, unknown>
+    if (state.exists === false) return null
+    if (typeof state.content === 'string') return state.content
+  }
+  return undefined
+}
+
+function getSnapshot(value: unknown): FileSnapshot | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
+  const data = value as Record<string, unknown>
+  const beforeRaw = data.before ?? data.beforeContent ?? data.previous ?? data.oldContent
+  const afterRaw = data.after ?? data.afterContent ?? data.newContent ?? data.content
+  const before = stateContent(beforeRaw)
+  const after = stateContent(afterRaw)
+  const path = data.path ?? data.filePath
+  if ((beforeRaw === undefined && afterRaw === undefined) || (path !== undefined && typeof path !== 'string')) return undefined
+  if (beforeRaw !== undefined && before === undefined) return undefined
+  if (afterRaw !== undefined && after === undefined) return undefined
+  const operation = asText(data.operation ?? data.action ?? data.type) || (before == null ? 'create' : 'update')
+  return { before: before ?? null, after: after ?? null, path: asText(path) || '', operation }
+}
+
+function parseSnapshot(raw: string | undefined): FileSnapshot | undefined {
+  if (!raw?.trim()) return undefined
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    const direct = getSnapshot(parsed)
+    if (direct) return direct
+    if (parsed && typeof parsed === 'object') {
+      const wrapped = parsed as Record<string, unknown>
+      for (const key of ['snapshot', 'fileSnapshot', 'file', 'data']) {
+        const nested = getSnapshot(wrapped[key])
+        if (nested) return nested
+      }
+    }
+  } catch {
+    // Ordinary tool output remains visible in the result panel.
+  }
+  return undefined
+}
+
+const diffSnapshot = computed(() => {
+  if (props.call.name !== 'write_file' || state.value === 'error') return undefined
+  const snapshot = parseSnapshot(output.value)
+  if (!snapshot) return undefined
+  const args = props.call.args || {}
+  return {
+    ...snapshot,
+    path: snapshot.path || asText(args.path) || '',
+    after: snapshot.after ?? asText(args.content)
+  }
+})
 </script>
 
 <template>
@@ -50,6 +120,23 @@ const stateIcon = computed(() => ({ running: 'mdi:loading', done: 'mdi:check-cir
         {{ state === 'error' ? '错误详情' : '工具结果' }}
       </button>
       <pre v-if="resultOpen" class="tool-code tool-result">{{ output }}</pre>
+      <button
+        v-if="diffSnapshot"
+        class="tool-toggle tool-diff-toggle"
+        type="button"
+        :aria-expanded="diffOpen"
+        @click="diffOpen = !diffOpen"
+      >
+        <Icon :class="{ 'tool-toggle-icon--open': diffOpen }" icon="mdi:chevron-right" width="16" />
+        查看 Diff
+      </button>
+      <FileDiffView
+        v-if="diffOpen && diffSnapshot"
+        :before="diffSnapshot.before"
+        :after="diffSnapshot.after"
+        :path="diffSnapshot.path"
+        :operation="diffSnapshot.operation"
+      />
     </template>
   </article>
 </template>
@@ -99,6 +186,9 @@ const stateIcon = computed(() => ({ running: 'mdi:loading', done: 'mdi:check-cir
 }
 .tool-toggle:hover {
   background: rgba(255, 255, 255, 0.035);
+}
+.tool-diff-toggle {
+  color: var(--accent);
 }
 .tool-toggle-icon--open {
   transform: rotate(90deg);

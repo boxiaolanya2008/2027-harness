@@ -2,11 +2,12 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron'
 import { join } from 'node:path'
 import { getSecret, setSecret } from './security'
 import { runGit, runGitStreaming } from './ipc/git'
-import { readFileIn, writeFileIn, listDir } from './ipc/fs'
+import { readFileIn, writeFileIn, listDir, snapshotWorkspace, type FileState } from './ipc/fs'
 import { runCommand } from './ipc/shell'
 import { gh, ghPaginate } from './ipc/github'
 import { buildIndex, searchIndex, loadIndex, saveIndex } from './ipc/indexer'
 import { StateRepository } from './state/repository'
+import { ChangeJournal, parseWriteContext } from './state/change-journal'
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -31,7 +32,9 @@ function createWindow() {
 }
 
 function registerIpc() {
-  const state = new StateRepository(app.getPath('userData'))
+  const userDataPath = app.getPath('userData')
+  const state = new StateRepository(userDataPath)
+  const changes = new ChangeJournal(userDataPath)
 
   ipcMain.handle('settings:get', () => ({ aiKey: getSecret('aiKey'), githubToken: getSecret('githubToken') }))
   ipcMain.handle('settings:setAiKey', (_e, key: string) => setSecret('aiKey', key))
@@ -72,17 +75,36 @@ function registerIpc() {
   )
 
   ipcMain.handle('fs:read', (_e, workspace: string, rel: string) => readFileIn(workspace, rel))
-  ipcMain.handle('fs:write', (_e, workspace: string, rel: string, content: string) =>
-    writeFileIn(workspace, rel, content)
-  )
+  ipcMain.handle('fs:write', async (_e, workspace: string, rel: string, content: string, context?: unknown) => {
+    if (context !== undefined && parseWriteContext(context) === null) throw new Error('Invalid write context')
+    const snapshot = await writeFileIn(workspace, rel, content)
+    if (context !== undefined) await changes.record(context, workspace, snapshot)
+    return snapshot
+  })
   ipcMain.handle('fs:list', (_e, workspace: string, rel?: string) => listDir(workspace, rel || '.'))
 
-  ipcMain.handle('shell:run', async (event, cwd: string, command: string, args: string[]) => {
+  ipcMain.handle('changes:list', (_e, filter?: unknown) => changes.listChanges(filter))
+  ipcMain.handle('changes:restoreFile', (_e, request: unknown) => changes.restoreFile(request))
+  ipcMain.handle('changes:restoreBatch', (_e, request: unknown) => changes.restoreBatch(request))
+
+  ipcMain.handle('shell:run', async (event, cwd: string, command: string, args: string[], context?: unknown) => {
+    if (context !== undefined && parseWriteContext(context) === null) throw new Error('Invalid shell context')
+    const before = context ? await snapshotWorkspace(cwd) : undefined
     let output = ''
     const result = await runCommand(cwd, command, args, (chunk) => {
       output += chunk
       event.sender.send('shell:output', chunk)
     })
+    if (context && before) {
+      const after = await snapshotWorkspace(cwd)
+      const paths = new Set([...before.keys(), ...after.keys()])
+      for (const path of paths) {
+        const previous = before.get(path) || { exists: false, content: null, sha256: null, size: 0 }
+        const current = after.get(path) || { exists: false, content: null, sha256: null, size: 0 }
+        if (previous.sha256 === current.sha256 && previous.exists === current.exists) continue
+        await changes.record(context, cwd, { path, operation: current.exists ? (previous.exists ? 'modify' : 'create') : 'delete', before: previous, after: current })
+      }
+    }
     return { code: result.code, output }
   })
 

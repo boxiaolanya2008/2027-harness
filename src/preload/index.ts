@@ -27,6 +27,77 @@ export interface UiState {
   repo: JsonObject | null
 }
 
+export interface FileState {
+  exists: boolean
+  content: string | null
+  sha256: string | null
+  size: number
+}
+
+export interface FileChangeSnapshot {
+  path: string
+  operation: 'create' | 'modify'
+  before: FileState
+  after: FileState
+}
+
+export interface ChangeContext {
+  conversationId: string
+  turnId: string
+  toolCallId: string
+}
+
+export interface ChangeRecord extends ChangeContext {
+  id: string
+  workspace: string
+  path: string
+  operation: 'create' | 'modify' | 'delete' | 'restore'
+  before: FileState
+  after: FileState
+  timestamp: number
+  restoreOf?: string
+}
+
+export interface AggregatedChange {
+  workspace: string
+  path: string
+  operation: ChangeRecord['operation']
+  before: FileState
+  after: FileState
+  latestChangeId: string
+  latestTimestamp: number
+  changeIds: string[]
+  changeCount: number
+  conversationIds: string[]
+  turnIds: string[]
+  toolCallIds: string[]
+}
+
+export interface ChangesListRequest {
+  conversationId?: string
+  turnId?: string
+  toolCallId?: string
+  workspace?: string
+}
+
+export interface RestoreFileRequest {
+  changeId: string
+  force?: boolean
+}
+
+export interface RestoreBatchRequest {
+  changeIds: string[]
+  force?: boolean
+}
+
+export interface RestoreResult {
+  changeId: string
+  restoreChangeId: string
+  workspace: string
+  path: string
+  forced: boolean
+}
+
 const api = {
   settings: {
     get: () => ipcRenderer.invoke('settings:get'),
@@ -59,13 +130,24 @@ const api = {
   },
   fs: {
     read: (workspace: string, rel: string) => ipcRenderer.invoke('fs:read', workspace, rel),
-    write: (workspace: string, rel: string, content: string) =>
-      ipcRenderer.invoke('fs:write', workspace, rel, content),
+    write: (
+      workspace: string,
+      rel: string,
+      content: string,
+      context?: ChangeContext
+    ): Promise<FileChangeSnapshot> => ipcRenderer.invoke('fs:write', workspace, rel, content, context),
     list: (workspace: string, rel?: string) => ipcRenderer.invoke('fs:list', workspace, rel)
   },
+  changes: {
+    list: (filter?: ChangesListRequest): Promise<AggregatedChange[]> => ipcRenderer.invoke('changes:list', filter),
+    restoreFile: (request: RestoreFileRequest): Promise<RestoreResult> =>
+      ipcRenderer.invoke('changes:restoreFile', request),
+    restoreBatch: (request: RestoreBatchRequest): Promise<RestoreResult[]> =>
+      ipcRenderer.invoke('changes:restoreBatch', request)
+  },
   shell: {
-    run: (cwd: string, command: string, args: string[]) =>
-      ipcRenderer.invoke('shell:run', cwd, command, args),
+    run: (cwd: string, command: string, args: string[], context?: ChangeContext) =>
+      ipcRenderer.invoke('shell:run', cwd, command, args, context),
     onOutput: (cb: (chunk: string) => void) => {
       const listener = (_e: unknown, chunk: string) => cb(chunk)
       ipcRenderer.on('shell:output', listener)

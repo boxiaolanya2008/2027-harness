@@ -94,6 +94,8 @@ export interface Message {
   content: string
   events?: AssistantTurnEvent[]
   toolCalls?: ToolCall[]
+  protocolUserIndex?: number
+  turnId?: string
   createdAt: number
 }
 

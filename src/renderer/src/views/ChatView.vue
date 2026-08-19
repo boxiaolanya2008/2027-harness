@@ -14,6 +14,8 @@ const chat = useChatStore()
 const input = ref('')
 const listRef = ref<HTMLElement | null>(null)
 const rightOpen = ref(true)
+const editingMessageId = ref<string | null>(null)
+const editingText = ref('')
 
 const activeConversation = computed(() => chat.current())
 const activeWorkspaceName = computed(() => chat.workspace?.split(/[\\/]/).filter(Boolean).pop() || '未选择工作区')
@@ -33,6 +35,26 @@ async function send() {
   if (!text || chat.running) return
   input.value = ''
   await chat.sendPrompt(text)
+  scrollDown(true)
+}
+
+function startEdit(messageId: string, content: string) {
+  if (chat.running) return
+  editingMessageId.value = messageId
+  editingText.value = content
+}
+
+function cancelEdit() {
+  editingMessageId.value = null
+  editingText.value = ''
+}
+
+async function confirmEdit() {
+  if (!editingMessageId.value || !editingText.value.trim() || chat.running) return
+  const id = editingMessageId.value
+  const text = editingText.value
+  cancelEdit()
+  await chat.editAndRegenerate(id, text)
   scrollDown(true)
 }
 
@@ -95,7 +117,21 @@ watch(
       <div ref="listRef" class="message-scroll">
         <div v-if="activeConversation" class="message-list">
           <article v-for="message in activeConversation.messages" :key="message.id" class="message" :class="`message--${message.role}`">
-            <div v-if="message.role === 'user'" class="user-message">{{ message.content }}</div>
+            <div v-if="message.role === 'user'" class="user-message-wrap">
+              <div v-if="editingMessageId !== message.id" class="user-message" @dblclick="startEdit(message.id, message.content)">
+                <span>{{ message.content }}</span>
+                <button v-if="!chat.running" class="edit-message" title="编辑消息" @click="startEdit(message.id, message.content)">
+                  <Icon icon="mdi:pencil-outline" width="14" />
+                </button>
+              </div>
+              <div v-else class="message-editor">
+                <el-input v-model="editingText" type="textarea" :autosize="{ minRows: 2, maxRows: 8 }" @keydown.esc="cancelEdit" @keydown.meta.enter.prevent="confirmEdit" @keydown.ctrl.enter.prevent="confirmEdit" />
+                <div class="editor-actions">
+                  <span>Ctrl/Cmd + Enter 重新生成 · Esc 取消</span>
+                  <div><el-button text @click="cancelEdit">取消</el-button><el-button type="primary" :disabled="!editingText.trim()" @click="confirmEdit">重新生成</el-button></div>
+                </div>
+              </div>
+            </div>
             <div v-else class="assistant-message">
               <TurnTimeline v-if="message.events?.length" :events="message.events" :streaming="chat.running" />
               <MarkdownView v-else-if="message.content" :content="message.content" />
@@ -167,7 +203,15 @@ watch(
 .message-list { width: min(900px, 100%); margin: 0 auto; padding: 28px clamp(18px, 4vw, 48px) 42px; }
 .message { display: flex; margin-bottom: 24px; }
 .message--user { justify-content: flex-end; }
-.user-message { max-width: min(720px, 86%); padding: 11px 13px; border-radius: 10px; color: var(--text-primary); background: var(--selected-bg); white-space: pre-wrap; line-height: 1.6; }
+.user-message-wrap { max-width: min(720px, 86%); }
+.user-message { display: flex; align-items: flex-start; gap: 10px; padding: 11px 13px; border-radius: 10px; color: var(--text-primary); background: var(--selected-bg); white-space: pre-wrap; line-height: 1.6; }
+.edit-message { flex: 0 0 auto; display: grid; place-items: center; width: 24px; height: 24px; margin: -3px -5px 0 0; border: 0; border-radius: 5px; color: var(--text-secondary); background: transparent; cursor: pointer; opacity: 0; }
+.user-message:hover .edit-message { opacity: 1; }
+.edit-message:hover { color: var(--accent); background: var(--hover-bg); }
+.message-editor { width: min(720px, 86vw); padding: 8px; border: 1px solid var(--accent); border-radius: 10px; background: var(--surface-bg); box-shadow: 0 0 0 3px var(--focus-ring); }
+.message-editor :deep(.el-textarea__inner) { border: 0; box-shadow: none; background: transparent; }
+.editor-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 4px 0; color: var(--text-faint); font-size: 11px; }
+.editor-actions > div { display: flex; gap: 4px; }
 .assistant-message { width: min(820px, 100%); min-width: 0; color: var(--text-primary); line-height: 1.7; }
 .waiting { display: inline-flex; align-items: center; gap: 7px; color: var(--text-secondary); font-size: 13px; }
 .composer-wrap { flex: 0 0 auto; padding: 14px clamp(18px, 4vw, 48px) 20px; border-top: 1px solid var(--glass-border); background: var(--workbench-bg); }

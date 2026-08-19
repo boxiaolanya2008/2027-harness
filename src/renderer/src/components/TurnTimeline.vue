@@ -15,19 +15,25 @@ const props = withDefaults(defineProps<{
 const orderedEvents = computed(() => [...props.events].sort((a, b) => a.seq - b.seq))
 
 function nextResult(event: ToolCallEvent, index: number): ToolResultEvent | undefined {
+  let matched: ToolResultEvent | undefined
   for (let i = index + 1; i < orderedEvents.value.length; i++) {
     const candidate = orderedEvents.value[i]
-    if (candidate.type === 'tool_result' && candidate.callId === event.callId) return candidate
-    if (candidate.type === 'tool_call' && candidate.callId !== event.callId) return undefined
+    if (candidate.type === 'tool_result' && candidate.callId === event.callId) {
+      matched = candidate
+      continue
+    }
+    if (candidate.type === 'tool_call' && candidate.callId !== event.callId) break
   }
-  return undefined
+  return matched
 }
 
 function callFor(event: ToolCallEvent, index: number): ToolCall {
   let args: Record<string, unknown> = event.args || {}
-  if (!event.args && event.rawArgs) {
+  if ((!event.args || !Object.keys(event.args).length) && event.rawArgs) {
     try {
-      args = JSON.parse(event.rawArgs) as Record<string, unknown>
+      const parsed = JSON.parse(event.rawArgs)
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) args = parsed as Record<string, unknown>
+      else args = { _raw: event.rawArgs }
     } catch {
       args = { _raw: event.rawArgs }
     }
@@ -38,13 +44,14 @@ function callFor(event: ToolCallEvent, index: number): ToolCall {
     id: event.callId,
     name: event.name || 'unknown_tool',
     args,
-    status: event.error || result?.status === 'failed' || result?.error ? 'error' : result?.status === 'succeeded' || event.phase === 'completed' ? 'done' : 'running'
+    status: event.error || result?.status === 'failed' || Boolean(result?.error) ? 'error' : result?.status === 'succeeded' || event.phase === 'completed' ? 'done' : 'running'
   }
 }
 
 function resultFor(event: ToolCallEvent, index: number): string | undefined {
   const result = nextResult(event, index)
-  return result?.error || result?.content
+  if (!result) return undefined
+  return result.error ?? result.content
 }
 
 function isConsumedResult(event: AssistantTurnEvent, index: number) {

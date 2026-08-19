@@ -20,7 +20,8 @@ export async function runAgent(
   workspace: string,
   onEvent: (event: AgentEvent) => void,
   signal?: AbortSignal,
-  history: ChatMsg[] = []
+  history: ChatMsg[] = [],
+  context?: { conversationId: string; turnId: string }
 ): Promise<RunAgentResult> {
   const settings = settingsStore.settings
   const apiKey = (await window.api.settings.get()).aiKey
@@ -123,7 +124,7 @@ export async function runAgent(
         content = `错误: ${failure}`
       } else {
         try {
-          content = await execTool(workspace, name, call.args as Record<string, any>)
+          content = await execTool(workspace, name, call.args as Record<string, any>, context ? { ...context, toolCallId } : undefined)
         } catch (error) {
           failure = (error as Error).message || String(error)
           content = `错误: ${failure}`

@@ -20,6 +20,9 @@ import folderPlusOutline from '@iconify-icons/mdi/folder-plus-outline'
 import folderOpenOutline from '@iconify-icons/mdi/folder-open-outline'
 import messageTextOutline from '@iconify-icons/mdi/message-text-outline'
 import deleteOutline from '@iconify-icons/mdi/delete-outline'
+import pencilOutline from '@iconify-icons/mdi/pencil-outline'
+import undo from '@iconify-icons/mdi/undo'
+import history from '@iconify-icons/mdi/history'
 import chevronRight from '@iconify-icons/mdi/chevron-right'
 import alertCircleOutline from '@iconify-icons/mdi/alert-circle-outline'
 import headSnowflakeOutline from '@iconify-icons/mdi/head-snowflake-outline'
@@ -47,6 +50,9 @@ addIcon('mdi:folder-plus-outline', folderPlusOutline)
 addIcon('mdi:folder-open-outline', folderOpenOutline)
 addIcon('mdi:message-text-outline', messageTextOutline)
 addIcon('mdi:delete-outline', deleteOutline)
+addIcon('mdi:pencil-outline', pencilOutline)
+addIcon('mdi:undo', undo)
+addIcon('mdi:history', history)
 addIcon('mdi:chevron-right', chevronRight)
 addIcon('mdi:alert-circle-outline', alertCircleOutline)
 addIcon('mdi:head-snowflake-outline', headSnowflakeOutline)
