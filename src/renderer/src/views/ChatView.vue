@@ -62,6 +62,33 @@ const composerMode = ref<ComposerMode>('coding')
 const activeConversation = computed(() => chat.current())
 const activeWorkspaceName = computed(() => chat.workspace?.split(/[\\/]/).filter(Boolean).pop() || '')
 const currentBranch = ref('')
+const activeMessageId = ref<string | null>(null)
+
+const navigableMessages = computed(() => activeConversation.value?.messages || [])
+
+function updateActiveMessage() {
+  const container = listRef.value
+  if (!container || !navigableMessages.value.length) {
+    activeMessageId.value = null
+    return
+  }
+  const threshold = container.scrollTop + 24
+  const elements = Array.from(container.querySelectorAll<HTMLElement>('[data-message-id]'))
+  let active = elements[0]
+  for (const element of elements) {
+    if (element.offsetTop <= threshold) active = element
+    else break
+  }
+  activeMessageId.value = active?.dataset.messageId || navigableMessages.value[0]?.id || null
+}
+
+function scrollToMessage(id: string) {
+  const container = listRef.value
+  const target = container?.querySelector<HTMLElement>(`[data-message-id="${CSS.escape(id)}"]`)
+  if (!container || !target) return
+  activeMessageId.value = id
+  container.scrollTo({ top: Math.max(0, target.offsetTop - 12), behavior: 'smooth' })
+}
 
 async function updateCurrentBranch() {
   if (!chat.workspace) {
@@ -119,11 +146,23 @@ async function confirmEdit() {
   scrollDown(true)
 }
 
+function handleMessageScroll() {
+  updateActiveMessage()
+}
+
 watch(
   () => activeConversation.value?.messages.map((message) => `${message.id}:${message.content.length}:${message.events?.length || 0}`).join('|'),
-  () => scrollDown(),
+  () => {
+    scrollDown()
+    nextTick(updateActiveMessage)
+  },
   { flush: 'post' }
 )
+
+watch(() => activeConversation.value?.id, () => {
+  activeMessageId.value = navigableMessages.value[0]?.id || null
+  nextTick(updateActiveMessage)
+})
 </script>
 
 <template>
@@ -161,9 +200,9 @@ watch(
         </div>
       </header>
 
-      <div ref="listRef" class="message-scroll">
+      <div ref="listRef" class="message-scroll" @scroll="handleMessageScroll">
         <div v-if="activeConversation" class="message-list">
-          <article v-for="message in activeConversation.messages" :key="message.id" class="message" :class="`message--${message.role}`">
+          <article v-for="message in activeConversation.messages" :key="message.id" :data-message-id="message.id" class="message" :class="`message--${message.role}`">
             <div v-if="message.role === 'user'" class="user-message-wrap">
               <div v-if="editingMessageId !== message.id" class="user-message" @dblclick="startEdit(message.id, message.content)">
                 <span>{{ message.content }}</span>
@@ -195,6 +234,20 @@ watch(
         />
       </div>
 
+      <nav v-if="navigableMessages.length > 1" class="message-navigator" aria-label="消息位置导航">
+        <button
+          v-for="(message, index) in navigableMessages"
+          :key="message.id"
+          type="button"
+          class="message-marker"
+          :class="{ active: activeMessageId === message.id, 'message-marker--user': message.role === 'user' }"
+          :aria-current="activeMessageId === message.id ? 'location' : undefined"
+          :aria-label="`跳转到第 ${index + 1} 条${message.role === 'user' ? '用户' : '助手'}消息`"
+          :title="`第 ${index + 1} 条消息`"
+          @click="scrollToMessage(message.id)"
+        />
+      </nav>
+
       <footer class="composer-wrap">
         <ChatComposer v-model="input" :attachments="attachments" :running="chat.running" :workspace-name="chat.workspace ? activeWorkspaceName : '普通对话'" :model="settings.settings.model" :has-github="settings.hasGithubToken" @update:attachments="attachments = $event" @submit="send" @stop="chat.stop" />
       </footer>
@@ -213,7 +266,7 @@ watch(
 .left-pane { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--panel-bg); border-right: 1px solid var(--glass-border); }
 .app-mark { height: var(--topbar-height); display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); background: var(--panel-bg); font-size: 13px; font-weight: 600; }
 .logo { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 3px; color: white; background: var(--accent); font-size: 11px; }
-.center-pane { display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; background: var(--workbench-bg); }
+.center-pane { position: relative; display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; background: var(--workbench-bg); }
 .topbar { height: var(--topbar-height); flex: 0 0 var(--topbar-height); display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid var(--glass-border); background: var(--panel-bg); gap: 10px; }
 .topbar-context { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 auto; }
 .conversation-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; max-width: min(320px, 40%); flex: 0 1 auto; }
@@ -239,7 +292,15 @@ watch(
 .topbar-actions { display: flex; gap: 4px; flex: 0 0 auto; }
 .topbar-actions button { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; cursor: pointer; }
 .topbar-actions button:hover { color: var(--text-primary); background: var(--hover-bg); }
-.message-scroll { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.message-scroll { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
+.message-navigator { position: absolute; top: calc(var(--topbar-height) + 10px); right: 6px; bottom: 78px; z-index: 4; display: flex; width: 22px; flex-direction: column; align-items: center; justify-content: space-between; padding: 8px 0; pointer-events: none; }
+.message-navigator::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; transform: translateX(-50%); background: var(--glass-border); pointer-events: none; }
+.message-marker { position: relative; z-index: 1; width: 22px; height: 14px; padding: 0; border: 0; border-radius: 3px; background: transparent; cursor: pointer; pointer-events: auto; }
+.message-marker::after { content: ''; position: absolute; top: 50%; left: 50%; width: 14px; height: 3px; transform: translate(-50%, -50%); border-radius: 2px; background: color-mix(in srgb, var(--text-faint) 42%, transparent); transition: width 140ms ease, background-color 140ms ease; }
+.message-marker:hover::after { width: 18px; background: var(--text-secondary); }
+.message-marker.active::after { width: 20px; background: var(--accent); }
+.message-marker--user::after { background: color-mix(in srgb, var(--accent) 40%, var(--text-faint)); }
+@media (max-width: 860px) { .message-navigator { right: 2px; width: 18px; } .message-marker { width: 18px; } .message-marker::after { width: 11px; } }
 .message-list { width: min(900px, 100%); min-width: 0; margin: 0 auto; padding: calc(16px * var(--ui-space-scale)) calc(20px * var(--ui-space-scale)) calc(24px * var(--ui-space-scale)); }
 .message { display: flex; min-width: 0; margin-bottom: var(--space-4); }
 .message--user { justify-content: flex-start; }
