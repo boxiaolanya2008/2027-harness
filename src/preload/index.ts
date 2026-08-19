@@ -127,6 +127,9 @@ const api = {
   dialog: {
     pickDir: () => ipcRenderer.invoke('dialog:pickDir')
   },
+  githubAuth: {
+    detectLocal: (): Promise<{ connected: boolean; imported: boolean; login: string; reason?: string }> => ipcRenderer.invoke('github:detectLocalAuth')
+  },
   conversations: {
     list: (): Promise<ConversationSummary[]> => ipcRenderer.invoke('conversations:list'),
     load: (id: string): Promise<SerializedConversation | null> => ipcRenderer.invoke('conversations:load', id),

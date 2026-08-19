@@ -21,6 +21,8 @@ export const useSettingsStore = defineStore('settings', () => {
   const hasAiKey = ref(false)
   const hasGithubToken = ref(false)
   const gitIdentity = ref<{ name: string; email: string }>({ name: '', email: '' })
+  const githubLogin = ref('')
+  const githubAuthNote = ref('')
   const ready = ref(false)
   const error = ref('')
   let initializing: Promise<void> | null = null
@@ -28,10 +30,12 @@ export const useSettingsStore = defineStore('settings', () => {
   async function init() {
     if (ready.value) return
     if (initializing) return initializing
-    initializing = Promise.all([window.api.settings.get(), window.api.git.identity()]).then(([status, identity]) => {
+    initializing = Promise.all([window.api.settings.get(), window.api.git.identity(), window.api.githubAuth.detectLocal()]).then(([status, identity, githubAuth]) => {
       hasAiKey.value = status.hasAiKey
-      hasGithubToken.value = status.hasGithubToken
+      hasGithubToken.value = status.hasGithubToken || githubAuth.connected
       gitIdentity.value = identity
+      githubLogin.value = githubAuth.login
+      githubAuthNote.value = githubAuth.connected ? (githubAuth.imported ? '已从本机 GitHub CLI 登录导入' : '已连接 GitHub') : (githubAuth.reason || '')
     }).catch((reason) => {
       error.value = reason?.message || String(reason)
     }).finally(() => {
@@ -69,6 +73,8 @@ export const useSettingsStore = defineStore('settings', () => {
     hasAiKey,
     hasGithubToken,
     gitIdentity,
+    githubLogin,
+    githubAuthNote,
     ready,
     error,
     init,

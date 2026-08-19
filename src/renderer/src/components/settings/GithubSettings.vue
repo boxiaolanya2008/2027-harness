@@ -9,7 +9,7 @@ async function verify() {
   if (token.value) await settings.setGithubToken(token.value)
   if (!settings.hasGithubToken) return ElMessage.warning('请先填写 GitHub Token')
   verifying.value = true
-  try { const user = await window.api.gh.get('/user'); ElMessage.success(`GitHub 身份：${user.login}`); token.value = '' }
+  try { const user = await window.api.gh.get('/user'); settings.githubLogin = user.login; settings.githubAuthNote = '已通过 GitHub API 验证'; ElMessage.success(`GitHub 身份：${user.login}`); token.value = '' }
   catch (error: any) { ElMessage.error(error.message) }
   finally { verifying.value = false }
 }
@@ -24,6 +24,10 @@ async function refreshIdentity() { await settings.refreshGitIdentity(); ElMessag
         <small v-if="settings.hasGithubToken && !token">已保存 ·••••••••</small>
       </el-form-item>
     </el-form>
+    <div class="identity-box">
+      <div><strong>GitHub 连接</strong><span v-if="settings.githubLogin">@{{ settings.githubLogin }}</span><span v-else>未连接</span></div>
+      <p>{{ settings.githubAuthNote || '本地 Git 署名不等于 GitHub 登录凭据。' }}</p>
+    </div>
     <div class="identity-box">
       <div><strong>本地 Git identity</strong><span v-if="settings.gitIdentity.name || settings.gitIdentity.email">已自动检测</span><span v-else>未检测到</span></div>
       <p>{{ settings.gitIdentity.name || '未配置 user.name' }} · {{ settings.gitIdentity.email || '未配置 user.email' }}</p>

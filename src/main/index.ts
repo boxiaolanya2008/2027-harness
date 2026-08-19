@@ -1,4 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog } from 'electron'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import { join } from 'node:path'
 import { getSecret, setSecret } from './security'
 import { runGit, runGitStreaming } from './ipc/git'
@@ -7,6 +9,8 @@ import { runCommand } from './ipc/shell'
 import { gh, ghPaginate } from './ipc/github'
 import { StateRepository } from './state/repository'
 import { ChangeJournal, parseWriteContext } from './state/change-journal'
+
+const exec = promisify(execFile)
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -45,6 +49,23 @@ function registerIpc() {
   ipcMain.handle('settings:getAiKeyForRequest', () => getSecret('aiKey'))
   ipcMain.handle('settings:setAiKey', (_e, key: string) => setSecret('aiKey', key))
   ipcMain.handle('settings:setGithubToken', (_e, token: string) => setSecret('githubToken', token))
+  ipcMain.handle('github:detectLocalAuth', async () => {
+    const saved = getSecret('githubToken')
+    try {
+      if (saved) {
+        const user = await gh('/user')
+        return { connected: true, imported: false, login: user.login || '' }
+      }
+      const { stdout } = await exec('gh', ['auth', 'token'], { windowsHide: true, maxBuffer: 1024 * 1024 })
+      const token = stdout.trim()
+      if (!token) return { connected: false, imported: false, login: '', reason: '本机 GitHub CLI 未返回登录 token' }
+      setSecret('githubToken', token)
+      const user = await gh('/user')
+      return { connected: true, imported: true, login: user.login || '' }
+    } catch {
+      return { connected: false, imported: false, login: '', reason: '未检测到 GitHub CLI 登录，请在设置中输入 Token 或执行 gh auth login' }
+    }
+  })
 
   ipcMain.handle('dialog:pickDir', async () => {
     const r = await dialog.showOpenDialog({ properties: ['openDirectory'] })
