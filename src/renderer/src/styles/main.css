@@ -15,8 +15,8 @@ body {
 button, input, textarea { font: inherit; }
 button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text-faint) 35%, transparent); border-radius: 999px; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text-faint) 45%, transparent); border: 2px solid transparent; background-clip: padding-box; border-radius: 0; }
 ::-webkit-scrollbar-track { background: transparent; }
 
 #nprogress .bar { background: var(--accent); }

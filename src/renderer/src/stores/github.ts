@@ -24,7 +24,7 @@ export const useGithubStore = defineStore('github', () => {
   async function loadRepos() {
     loading.value = true
     try {
-      repos.value = await window.api.gh.paged('/user/repos')
+      repos.value = await window.api.gh.paged('/user/repos?affiliation=owner,collaborator,organization_member&sort=updated')
       error.value = ''
     } catch (e: any) {
       error.value = e.message
@@ -35,7 +35,41 @@ export const useGithubStore = defineStore('github', () => {
 
   async function selectRepo(repo: Repo) {
     currentRepo.value = repo
-    await Promise.all([loadPrs(), loadIssues(), loadCommits()])
+    loading.value = true
+    try {
+      await Promise.all([loadPrs(), loadIssues(), loadCommits()])
+      error.value = ''
+    } catch (e: any) {
+      error.value = e.message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  async function selectByFullName(fullName: string) {
+    const target = String(fullName || '').trim()
+    if (!target) return null
+    const existing = repos.value.find((repo) => repo.full_name.toLowerCase() === target.toLowerCase())
+    if (existing) {
+      await selectRepo(existing)
+      return existing
+    }
+    loading.value = true
+    try {
+      const repo = await window.api.gh.get(`/repos/${target}`) as Repo
+      if (!repos.value.some((item) => item.full_name === repo.full_name)) {
+        repos.value = [repo, ...repos.value]
+      }
+      currentRepo.value = repo
+      await Promise.all([loadPrs(), loadIssues(), loadCommits()])
+      error.value = ''
+      return repo
+    } catch (e: any) {
+      error.value = e.message
+      return null
+    } finally {
+      loading.value = false
+    }
   }
 
   async function loadPrs() {
@@ -83,6 +117,7 @@ export const useGithubStore = defineStore('github', () => {
     loadIdentity,
     loadRepos,
     selectRepo,
+    selectByFullName,
     createIssue
   }
 })

@@ -111,7 +111,10 @@ export const useChatStore = defineStore('chat', () => {
     workspaces.value = ui.recentWorkspaces || []
     selectedProjectId.value = ui.selectedProjectId
     expandedProjectIds.value = ui.expandedProjectIds || []
-    rightPanelTab.value = ui.rightPanelTab === 'changes' ? 'changes' : 'github'
+    if (selectedProjectId.value && !expandedProjectIds.value.includes(selectedProjectId.value)) {
+      expandedProjectIds.value = [...expandedProjectIds.value, selectedProjectId.value]
+    }
+    rightPanelTab.value = ['github', 'pr', 'issue', 'changes'].includes(ui.rightPanelTab) ? ui.rightPanelTab : 'github'
     selectedRepoFullName.value = typeof ui.repo?.full_name === 'string' ? ui.repo.full_name : null
     const loaded = await Promise.all(summaries.map((summary) => window.api.conversations.load(summary.id)))
     conversations.value = loaded.filter(Boolean).map(asConversation)
@@ -129,6 +132,9 @@ export const useChatStore = defineStore('chat', () => {
     selectedProjectId.value = project.id
     workspace.value = project.workspace
     workspaces.value = [project.workspace, ...workspaces.value.filter((item) => item !== project.workspace)].slice(0, 12)
+    if (!expandedProjectIds.value.includes(project.id)) {
+      expandedProjectIds.value = [...expandedProjectIds.value, project.id]
+    }
     const conversation = current()
     if (conversation && !conversation.messages.length) {
       conversation.workspace = project.workspace
@@ -156,6 +162,9 @@ export const useChatStore = defineStore('chat', () => {
     selectedProjectId.value = project.id
     workspace.value = project.workspace
     workspaces.value = [project.workspace, ...workspaces.value.filter((item) => item !== project.workspace)].slice(0, 12)
+    if (!expandedProjectIds.value.includes(project.id)) {
+      expandedProjectIds.value = [...expandedProjectIds.value, project.id]
+    }
     const latest = [...conversations.value]
       .filter((item) => item.projectId === project.id)
       .sort((left, right) => (right.updatedAt || right.createdAt) - (left.updatedAt || left.createdAt))[0]

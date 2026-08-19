@@ -134,13 +134,13 @@ onMounted(load)
 
 <style scoped>
 .changes-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; background: var(--panel-bg); }
-.changes-head { display: flex; justify-content: space-between; align-items: center; padding: 14px; border-bottom: 1px solid var(--glass-border); }
-.changes-head div { display: flex; flex-direction: column; gap: 4px; }
+.changes-head { display: flex; justify-content: space-between; align-items: center; padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--glass-border); }
+.changes-head div { display: flex; flex-direction: column; gap: var(--space-1); }
 .changes-head span { color: var(--text-secondary); font-size: 11px; }
 .head-actions { display: flex; align-items: center; gap: 2px; }
-.changes-state { padding: 28px 16px; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
-.change-list { overflow: auto; padding: 4px 12px 20px; }
-.change-row { padding: 10px 0; border-bottom: 1px solid var(--glass-border); }
+.changes-state { padding: var(--space-6) var(--space-4); color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
+.change-list { overflow: auto; padding: var(--space-1) var(--space-3) var(--space-5); }
+.change-row { padding: var(--space-3) 0; border-bottom: 1px solid var(--glass-border); }
 .change-main { display: flex; align-items: center; width: calc(100% - 60px); gap: 5px; border: 0; color: var(--text-primary); background: transparent; cursor: pointer; text-align: left; }
 .file-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 12px 'Cascadia Code', Consolas, monospace; }
 .file-op { flex: 0 0 auto; font-size: 10px; color: var(--accent); }

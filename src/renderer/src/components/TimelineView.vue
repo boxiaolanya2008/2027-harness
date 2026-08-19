@@ -35,21 +35,9 @@ defineProps<{
 </template>
 
 <style scoped>
-.timeline {
-  display: flex;
-  flex-direction: column;
-}
-.tl-item {
-  display: flex;
-  gap: var(--space-3);
-}
-.tl-rail {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  width: 24px;
-  flex-shrink: 0;
-}
+.timeline { display: flex; flex-direction: column; padding: 8px 4px 0; }
+.tl-item { display: flex; gap: 12px; }
+.tl-rail { display: flex; flex-direction: column; align-items: center; width: 24px; flex-shrink: 0; }
 .tl-dot {
   width: 24px;
   height: 24px;
@@ -57,29 +45,11 @@ defineProps<{
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #0b0e14;
-  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.06);
+  color: #fff;
 }
-.tl-line {
-  flex: 1;
-  width: 2px;
-  background: rgba(255, 255, 255, 0.1);
-}
-.tl-body {
-  padding-bottom: var(--space-5);
-}
-.tl-time {
-  font-size: 12px;
-  color: var(--text-faint);
-}
-.tl-title {
-  font-size: 13px;
-  color: var(--text-primary);
-  margin-top: var(--space-1);
-}
-.tl-subtitle {
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-top: var(--space-1);
-}
+.tl-line { flex: 1; width: 2px; background: var(--glass-border); }
+.tl-body { padding-bottom: 16px; min-width: 0; }
+.tl-time { font-size: 12px; color: var(--text-faint); }
+.tl-title { font-size: 13px; color: var(--text-primary); margin-top: 4px; line-height: 1.4; }
+.tl-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
 </style>

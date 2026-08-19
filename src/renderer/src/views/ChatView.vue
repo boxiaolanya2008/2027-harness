@@ -19,6 +19,41 @@ const settings = useSettingsStore()
 const input = ref('')
 const listRef = ref<HTMLElement | null>(null)
 const rightOpen = ref(true)
+const LAYOUT_KEY = 'super-agent-pane-layout'
+const leftWidth = ref(260)
+const rightWidth = ref(320)
+try {
+  const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) || '')
+  if (Number.isFinite(saved?.left)) leftWidth.value = saved.left
+  if (Number.isFinite(saved?.right)) rightWidth.value = saved.right
+} catch {}
+
+function saveLayout() {
+  localStorage.setItem(LAYOUT_KEY, JSON.stringify({ left: leftWidth.value, right: rightWidth.value }))
+}
+
+function startResize(side: 'left' | 'right', event: MouseEvent) {
+  event.preventDefault()
+  const startX = event.clientX
+  const start = side === 'left' ? leftWidth.value : rightWidth.value
+  const previousCursor = document.body.style.cursor
+  const previousSelect = document.body.style.userSelect
+  document.body.style.cursor = 'col-resize'
+  document.body.style.userSelect = 'none'
+  function move(ev: MouseEvent) {
+    if (side === 'left') leftWidth.value = Math.min(480, Math.max(200, start + (ev.clientX - startX)))
+    else rightWidth.value = Math.min(560, Math.max(260, start - (ev.clientX - startX)))
+  }
+  function up() {
+    document.body.style.cursor = previousCursor
+    document.body.style.userSelect = previousSelect
+    window.removeEventListener('mousemove', move)
+    window.removeEventListener('mouseup', up)
+    saveLayout()
+  }
+  window.addEventListener('mousemove', move)
+  window.addEventListener('mouseup', up)
+}
 const editingMessageId = ref<string | null>(null)
 const editingText = ref('')
 const attachments = ref<ComposerAttachment[]>([])
@@ -74,15 +109,19 @@ watch(
 </script>
 
 <template>
-  <main class="workbench" :class="{ 'workbench--right-closed': !rightOpen }">
+  <main
+    class="workbench"
+    :class="{ 'workbench--right-closed': !rightOpen }"
+    :style="{ '--left-pane-width': leftWidth + 'px', '--right-pane-width': rightWidth + 'px' }"
+  >
     <aside class="left-pane">
       <header class="app-mark">
         <div class="logo">S</div>
         <span>Super-Agent</span>
-        <button class="app-settings" title="应用设置" @click="router.push('/settings')"><Icon icon="mdi:cog" width="17" /></button>
       </header>
 
       <WorkspaceSidebar />
+      <div class="pane-resizer" title="拖动调整侧栏宽度" @mousedown="startResize('left', $event)" />
     </aside>
 
     <section class="center-pane">
@@ -136,67 +175,50 @@ watch(
       </footer>
     </section>
 
-    <RightPanel v-if="rightOpen" class="right-pane" />
+    <div v-if="rightOpen" class="right-shell">
+      <div class="pane-resizer pane-resizer--left" title="拖动调整详情栏宽度" @mousedown="startResize('right', $event)" />
+      <RightPanel />
+    </div>
   </main>
 </template>
 
 <style scoped>
 .workbench { display: grid; grid-template-columns: var(--left-pane-width) minmax(0, 1fr) var(--right-pane-width); width: 100%; height: 100vh; min-height: 0; overflow: hidden; background: var(--workbench-bg); }
 .workbench--right-closed { grid-template-columns: var(--left-pane-width) minmax(0, 1fr); }
-.left-pane { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--panel-bg); border-right: 1px solid var(--glass-border); }
-.app-mark { height: var(--topbar-height); display: flex; align-items: center; gap: 9px; padding: 0 14px; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); font-size: 14px; font-weight: 700; }
-.logo { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 6px; color: white; background: var(--accent); font-size: 13px; }
-.app-settings { display: grid; place-items: center; width: 28px; height: 28px; margin-left: auto; padding: 0; border: 0; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; cursor: pointer; }
-.app-settings:hover { color: var(--text-primary); background: var(--hover-bg); }
-.app-settings, .topbar-actions button, .edit-message { transition: color 160ms ease, background-color 160ms ease, opacity 160ms ease, transform 160ms ease; }
-.app-settings:active, .topbar-actions button:active, .edit-message:active { transform: scale(0.94); }
+.left-pane { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: var(--panel-bg); border-right: 1px solid var(--glass-border); }
+.app-mark { height: var(--topbar-height); display: flex; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid var(--glass-border); color: var(--text-primary); background: var(--panel-bg); font-size: 13px; font-weight: 600; }
+.logo { width: 18px; height: 18px; display: grid; place-items: center; border-radius: 3px; color: white; background: var(--accent); font-size: 11px; }
 .center-pane { display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; background: var(--workbench-bg); }
-.topbar { height: var(--topbar-height); flex: 0 0 var(--topbar-height); display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid var(--glass-border); }
-.topbar-context { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.topbar-context strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.topbar { height: var(--topbar-height); flex: 0 0 var(--topbar-height); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--glass-border); background: var(--panel-bg); }
+.topbar-context { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.topbar-context strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; font-weight: 600; }
 .topbar-context span { display: inline-flex; align-items: center; gap: 5px; overflow: hidden; color: var(--text-secondary); text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
-.topbar-actions { display: flex; gap: 4px; }
-.topbar-actions button { display: grid; place-items: center; width: 30px; height: 30px; border: 0; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; cursor: pointer; }
+.topbar-actions { display: flex; gap: 2px; }
+.topbar-actions button { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 3px; color: var(--text-secondary); background: transparent; cursor: pointer; }
 .topbar-actions button:hover { color: var(--text-primary); background: var(--hover-bg); }
 .message-scroll { flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; }
-.message-list { width: min(900px, 100%); min-width: 0; margin: 0 auto; padding: 28px clamp(18px, 4vw, 48px) 42px; }
-.message { display: flex; min-width: 0; margin-bottom: 24px; animation: message-enter 200ms ease-out both; }
-.message--user { justify-content: flex-end; }
-.user-message-wrap { max-width: min(720px, 86%); }
-.user-message { display: flex; align-items: flex-start; gap: 10px; padding: 11px 13px; border-radius: 10px; color: var(--text-primary); background: var(--selected-bg); white-space: pre-wrap; line-height: 1.6; flex-wrap: wrap; }.message-attachments { display:flex; width:100%; gap:5px; flex-wrap:wrap; }.message-attachment { display:inline-flex; align-items:center; gap:4px; padding:3px 6px; border-radius:5px; color:var(--text-secondary); background:var(--surface-bg); font-size:11px; }
-.edit-message { flex: 0 0 auto; display: grid; place-items: center; width: 24px; height: 24px; margin: -3px -5px 0 0; border: 0; border-radius: 5px; color: var(--text-secondary); background: transparent; cursor: pointer; opacity: 0; }
+.message-list { width: min(900px, 100%); min-width: 0; margin: 0 auto; padding: calc(16px * var(--ui-space-scale)) calc(20px * var(--ui-space-scale)) calc(24px * var(--ui-space-scale)); }
+.message { display: flex; min-width: 0; margin-bottom: var(--space-4); }
+.message--user { justify-content: flex-start; }
+.user-message-wrap { max-width: min(820px, 100%); }
+.user-message { display: flex; align-items: flex-start; gap: 8px; padding: 6px 0; color: var(--text-primary); white-space: pre-wrap; line-height: 1.55; flex-wrap: wrap; }.message-attachments { display:flex; width:100%; gap:5px; flex-wrap:wrap; }.message-attachment { display:inline-flex; align-items:center; gap:4px; padding:2px 6px; border:1px solid var(--glass-border); border-radius:3px; color:var(--text-secondary); background:var(--panel-bg); font-size:11px; }
+.edit-message { flex: 0 0 auto; display: grid; place-items: center; width: 22px; height: 22px; margin: 0; border: 0; border-radius: 3px; color: var(--text-secondary); background: transparent; cursor: pointer; opacity: 0; }
 .user-message:hover .edit-message { opacity: 1; }
-.edit-message:hover { color: var(--accent); background: var(--hover-bg); }
-.message-editor { width: min(720px, 86vw); padding: 8px; border: 1px solid var(--accent); border-radius: 10px; background: var(--surface-bg); box-shadow: 0 0 0 3px var(--focus-ring); }
+.edit-message:hover { color: var(--text-primary); background: var(--hover-bg); }
+.message-editor { width: min(820px, 100%); padding: 6px; border: 1px solid var(--accent); border-radius: 3px; background: var(--surface-bg); }
 .message-editor :deep(.el-textarea__inner) { border: 0; box-shadow: none; background: transparent; }
-.editor-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 4px 0; color: var(--text-faint); font-size: 11px; }
+.editor-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 6px 4px 0; color: var(--text-secondary); font-size: 11px; }
 .editor-actions > div { display: flex; gap: 4px; }
-.assistant-message { width: min(820px, 100%); min-width: 0; color: var(--text-primary); line-height: 1.7; }
-.assistant-message :deep(.tool-card),
-.assistant-message :deep(.orphan-result),
-.assistant-message :deep(.diff-view) { animation: tool-area-enter 200ms ease-out both; }
+.assistant-message { width: min(820px, 100%); min-width: 0; color: var(--text-primary); line-height: 1.6; }
 .assistant-message :deep(.tool-code),
 .assistant-message :deep(.orphan-result),
 .assistant-message :deep(.diff-body) { max-width: 100%; overflow: auto; overscroll-behavior: contain; }
 .waiting { display: inline-flex; align-items: center; gap: 7px; color: var(--text-secondary); font-size: 13px; }
-.composer-wrap { flex: 0 0 auto; padding: 14px clamp(18px, 4vw, 48px) 20px; border-top: 1px solid var(--glass-border); background: var(--workbench-bg); }
-.composer { width: min(900px, 100%); margin: 0 auto; overflow: hidden; border: 1px solid var(--glass-border); border-radius: 10px; background: var(--surface-bg); box-shadow: 0 4px 14px rgba(20, 24, 32, 0.05); }
-.composer:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--focus-ring); }
-.composer :deep(.el-textarea__inner) { min-height: 52px !important; padding: 13px 14px 8px; border: 0; box-shadow: none; color: var(--text-primary); background: transparent; line-height: 1.6; }
-.composer-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 8px 8px 14px; color: var(--text-faint); font-size: 11px; }
-.right-pane { min-width: 0; min-height: 0; overflow: hidden; animation: side-panel-enter 220ms ease-out both; }
-@keyframes message-enter {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@keyframes side-panel-enter {
-  from { opacity: 0; transform: translateX(10px); }
-  to { opacity: 1; transform: translateX(0); }
-}
-@keyframes tool-area-enter {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-@media (max-width: 1280px) { .workbench { grid-template-columns: 244px minmax(0, 1fr); } .right-pane { display: none; } }
-@media (max-width: 860px) { .workbench { grid-template-columns: 208px minmax(0, 1fr); } .topbar-context span { display: none; } }
+.composer-wrap { flex: 0 0 auto; padding: calc(8px * var(--ui-space-scale)) calc(16px * var(--ui-space-scale)) calc(10px * var(--ui-space-scale)); border-top: 1px solid var(--glass-border); background: var(--workbench-bg); }
+.right-shell { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
+.pane-resizer { position: absolute; top: 0; right: 0; z-index: 8; width: 6px; height: 100%; cursor: col-resize; }
+.pane-resizer--left { right: auto; left: 0; }
+.pane-resizer:hover, .pane-resizer:active { background: var(--accent); opacity: 0.45; }
+@media (max-width: 1280px) { .workbench { grid-template-columns: var(--left-pane-width) minmax(0, 1fr); } .right-shell { display: none; } }
+@media (max-width: 860px) { .workbench { grid-template-columns: var(--left-pane-width) minmax(0, 1fr); } .topbar-context span { display: none; } }
 </style>

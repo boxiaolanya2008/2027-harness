@@ -3,7 +3,7 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 import { join } from 'node:path'
 import { getSecret, setSecret } from './security'
-import { runGit, runGitStreaming } from './ipc/git'
+import { parseGitLog, parseGithubRemote, runGit, runGitStreaming } from './ipc/git'
 import { incrementallyEditFileIn, readFileIn, writeFileIn, listDir, snapshotWorkspace, type FileState } from './ipc/fs'
 import { runCommand } from './ipc/shell'
 import { gh, ghPaginate } from './ipc/github'
@@ -19,6 +19,7 @@ function createWindow() {
     minWidth: 1240,
     minHeight: 760,
     backgroundColor: '#0b0e14',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),
       contextIsolation: true,
@@ -32,6 +33,7 @@ function createWindow() {
   } else {
     win.loadFile(join(__dirname, '../renderer/index.html'))
   }
+  win.setMenuBarVisibility(false)
 }
 
 function registerIpc() {
@@ -97,18 +99,14 @@ function registerIpc() {
     const isRepo = await runGit(['rev-parse', '--is-inside-work-tree'], cwd)
       .then((value) => value === 'true')
       .catch(() => false)
-    if (!isRepo) return { isRepo: false, branch: '', remote: '', commits: [] }
+    if (!isRepo) return { isRepo: false, branch: '', remote: '', github: null, commits: [] }
 
     const [branch, remote, rawLog] = await Promise.all([
       runGit(['branch', '--show-current'], cwd).catch(() => ''),
       runGit(['remote', 'get-url', 'origin'], cwd).catch(() => ''),
       runGit(['log', '-n', '50', '--format=%H%x1f%an%x1f%ae%x1f%aI%x1f%s%x1e'], cwd).catch(() => '')
     ])
-    const commits = rawLog.split('\\x1e').filter(Boolean).map((record) => {
-      const [sha, author, email, date, subject] = record.split('\\x1f')
-      return { sha, author, email, date, subject }
-    }).filter((commit) => commit.sha && commit.date)
-    return { isRepo: true, branch, remote, commits }
+    return { isRepo: true, branch, remote, github: parseGithubRemote(remote), commits: parseGitLog(rawLog) }
   })
   ipcMain.handle('git:init', async (_e, cwd: string) => {
     await runGit(['init'], cwd)
