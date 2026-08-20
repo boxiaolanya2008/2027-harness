@@ -6,6 +6,7 @@ import type { ComposerAddAction, ComposerAttachment, ComposerMode, ComposerPlugi
 import SkillAutocomplete from '@/components/SkillAutocomplete.vue'
 import ComposerAddMenu from '@/components/ComposerAddMenu.vue'
 import ApprovalMenu from '@/components/ApprovalMenu.vue'
+import ModelReasoningPopover from '@/components/ModelReasoningPopover.vue'
 import { useSkills } from '@/api/skills'
 import { activeAtMention, isSlashTrigger } from '@/utils/skillParser'
 
@@ -53,6 +54,12 @@ const reasoningEffort = computed({
     settings.persist()
   }
 })
+const reasoningLabel = computed(() => {
+  const v = reasoningEffort.value
+  if (v === 'high') return '高'
+  if (v === 'low') return '低'
+  return '中'
+})
 const selectedModel = computed({
   get: () => activePreset.value.model || settings.settings.model,
   set: (next: string) => {
@@ -68,6 +75,7 @@ const mode = ref<ComposerMode>('coding')
 const canSubmit = computed(() => !!value.value.trim() && !props.running)
 const showAddMenu = ref(false)
 const showApprovalMenu = ref(false)
+const showModelPopover = ref(false)
 const composerRoot = ref<HTMLElement | null>(null)
 const inputRef = ref<any>(null)
 
@@ -89,7 +97,17 @@ function setApprovalMode(v: import('@/types').ApprovalMode) {
 }
 function toggleApprovalMenu() {
   showApprovalMenu.value = !showApprovalMenu.value
-  if (showApprovalMenu.value) showAddMenu.value = false
+  if (showApprovalMenu.value) {
+    showAddMenu.value = false
+    showModelPopover.value = false
+  }
+}
+function toggleModelPopover() {
+  showModelPopover.value = !showModelPopover.value
+  if (showModelPopover.value) {
+    showAddMenu.value = false
+    showApprovalMenu.value = false
+  }
 }
 
 type ActiveTrigger = { kind: 'slash'; query: string; start: number; end: number } | { kind: 'at'; query: string; start: number; end: number }
@@ -158,6 +176,7 @@ function toggleAddMenu() {
   if (showAddMenu.value) {
     activeTrigger.value = null
     showApprovalMenu.value = false
+    showModelPopover.value = false
   }
 }
 
@@ -176,10 +195,14 @@ function onClickOutside(event: MouseEvent) {
   if (composerRoot.value && !composerRoot.value.contains(target)) {
     showAddMenu.value = false
     showApprovalMenu.value = false
+    showModelPopover.value = false
   } else {
     const insideApproval = target.closest('.approval-menu')
     const isApprovalBtn = target.closest('.approve-btn')
     if (showApprovalMenu.value && !insideApproval && !isApprovalBtn) showApprovalMenu.value = false
+    const insideModel = target.closest('.model-popover')
+    const isModelTrigger = target.closest('.model-trigger')
+    if (showModelPopover.value && !insideModel && !isModelTrigger) showModelPopover.value = false
   }
 }
 
@@ -203,10 +226,11 @@ function selectSkill(name: string) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if ((showAddMenu.value || showApprovalMenu.value) && event.key === 'Escape') {
+  if ((showAddMenu.value || showApprovalMenu.value || showModelPopover.value) && event.key === 'Escape') {
     event.preventDefault()
     showAddMenu.value = false
     showApprovalMenu.value = false
+    showModelPopover.value = false
     return
   }
   if (showAutocomplete.value && filteredSkills.value.length) {
@@ -248,6 +272,7 @@ function onKeydown(event: KeyboardEvent) {
 function onInput() {
   if (showAddMenu.value) showAddMenu.value = false
   if (showApprovalMenu.value) showApprovalMenu.value = false
+  if (showModelPopover.value) showModelPopover.value = false
   nextTick(updateTrigger)
 }
 
@@ -341,10 +366,9 @@ function submit() {
       @rename="emit('rename')"
     />
 
-    <!-- 输入区：@ 标记 + 自适应 textarea -->
+    <!-- 输入区：自适应 textarea（已修复此前未输入"@"却显示"@"的问题） -->
     <div class="composer-input-area">
       <div class="input-row">
-        <span class="at-mark">@</span>
         <el-input
           ref="inputRef"
           v-model="value"
@@ -401,10 +425,25 @@ function submit() {
         </el-select>
       </div>
       <div class="footer-right">
-        <el-select v-model="selectedModel" class="model-select model-select--ghost" size="small" filterable allow-create default-first-option :placeholder="effectiveModel || '选择模型'">
-          <el-option v-for="option in modelOptions" :key="option" :label="option" :value="option" />
-        </el-select>
-        <span class="effort-tag" :title="`推理强度 ${reasoningEffort}`">{{ reasoningEffort === 'high' ? '高' : reasoningEffort === 'low' ? '低' : '中' }}</span>
+        <!-- 复刻图二：模型/推理强度触发器 + 弹出面板（仅布局） -->
+        <div class="model-popover-wrap">
+          <button class="model-pill-trigger" type="button" @click.stop="toggleModelPopover">
+            <Icon icon="mdi:loading" width="14" class="model-pill-icon" />
+            <span class="model-pill-text" :title="effectiveModel">{{ effectiveModel || 'muse-spark-1.2-contr...' }}</span>
+            <span class="model-pill-effort">{{ reasoningLabel }}</span>
+          </button>
+          <ModelReasoningPopover
+            v-if="showModelPopover"
+            :model="effectiveModel || 'muse-spark-1.2-contr...'"
+            :reasoning-label="reasoningLabel"
+            @select-model="showModelPopover = false"
+            @select-reasoning="showModelPopover = false"
+          />
+          <!-- 保留隐藏的功能性选择器，供设置持久化（布局上不可见，仅保证数据链路） -->
+          <el-select v-model="selectedModel" class="model-select--hidden" size="small" filterable allow-create>
+            <el-option v-for="option in modelOptions" :key="option" :label="option" :value="option" />
+          </el-select>
+        </div>
         <span v-if="hasGithub" class="github-meta"><Icon icon="mdi:github" width="12" /></span>
         <button v-if="props.running" class="stop-btn" type="button" @click="emit('stop')">停止</button>
         <button v-else class="send-btn" type="button" :disabled="!canSubmit" :class="{ disabled: !canSubmit }" @click="submit">
@@ -436,13 +475,6 @@ function submit() {
   display: flex;
   align-items: flex-start;
   gap: 6px;
-}
-.at-mark {
-  flex: 0 0 auto;
-  margin-top: 6px;
-  color: var(--text-faint);
-  font-size: 18px;
-  line-height: 1;
 }
 .composer-input {
   flex: 1;
@@ -550,23 +582,42 @@ function submit() {
   font-size: 11px;
 }
 .mode-select--compact { width: 86px; }
-.model-select--ghost { width: 160px; }
-.model-select--ghost :deep(.el-input__wrapper) {
-  background: transparent;
-  box-shadow: none;
-  border: 0;
-}
-.effort-tag {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
+.model-popover-wrap { position: relative; display: inline-flex; align-items: center; }
+.model-pill-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
   border: 1px solid var(--glass-border);
-  border-radius: 50%;
+  border-radius: 999px;
+  background: var(--panel-bg);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  max-width: 220px;
+}
+.model-pill-trigger:hover { background: var(--hover-bg); color: var(--text-primary); }
+.model-pill-icon { flex: 0 0 auto; color: var(--text-faint); animation: spin 1.1s linear infinite; }
+.model-pill-text {
+  flex: 1;
+  min-width: 0;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary);
+}
+.model-pill-effort {
+  flex: 0 0 auto;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--surface-bg);
+  border: 1px solid var(--glass-border);
   color: var(--text-faint);
   font-size: 11px;
-  flex: 0 0 auto;
 }
+.model-select--hidden { position: absolute; width: 0; height: 0; opacity: 0; pointer-events: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .github-meta {
   display: grid;
   place-items: center;
