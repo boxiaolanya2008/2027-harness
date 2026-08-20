@@ -201,8 +201,8 @@ function onClickOutside(event: MouseEvent) {
     const insideApproval = target.closest('.approval-menu')
     const isApprovalBtn = target.closest('.approve-btn')
     if (showApprovalMenu.value && !insideApproval && !isApprovalBtn) showApprovalMenu.value = false
-    const insideModel = target.closest('.model-popover')
-    const isModelTrigger = target.closest('.model-trigger')
+    const insideModel = target.closest('.model-popover') || target.closest('.submenu') || target.closest('.popover-root')
+    const isModelTrigger = target.closest('.model-pill-trigger')
     if (showModelPopover.value && !insideModel && !isModelTrigger) showModelPopover.value = false
   }
 }

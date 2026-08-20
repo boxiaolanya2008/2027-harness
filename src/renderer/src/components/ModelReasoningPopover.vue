@@ -19,11 +19,14 @@ const emit = defineEmits<{
 
 const activeSub = ref<'model' | 'reasoning' | null>(null)
 
-function toggleModel() {
-  activeSub.value = activeSub.value === 'model' ? null : 'model'
+function enterModel() {
+  activeSub.value = 'model'
 }
-function toggleReasoning() {
-  activeSub.value = activeSub.value === 'reasoning' ? null : 'reasoning'
+function enterReasoning() {
+  activeSub.value = 'reasoning'
+}
+function leaveSub() {
+  // keep submenu open when hovering over submenu itself; handled via wrapper hover
 }
 
 const reasoningOptions: Array<{ value: ReasoningEffort; label: string }> = [
@@ -49,14 +52,14 @@ function reasoningLabel(v: ReasoningEffort) {
 </script>
 
 <template>
-  <div class="popover-root">
+  <div class="popover-root" @mouseleave="activeSub = null">
     <div class="model-popover">
-      <button type="button" class="model-row" :class="{ active: activeSub === 'model' }" @mousedown.prevent="toggleModel">
+      <button type="button" class="model-row" :class="{ active: activeSub === 'model' }" @mouseenter="enterModel" @click="enterModel">
         <span class="row-label">模型</span>
         <span class="row-value" :title="model">{{ model }}</span>
         <Icon icon="mdi:chevron-right" width="18" class="row-arrow" />
       </button>
-      <button type="button" class="model-row" :class="{ active: activeSub === 'reasoning' }" @mousedown.prevent="toggleReasoning">
+      <button type="button" class="model-row" :class="{ active: activeSub === 'reasoning' }" @mouseenter="enterReasoning" @click="enterReasoning">
         <span class="row-label">推理强度</span>
         <span class="row-value row-value--center" :title="reasoningLabel(reasoning)">{{ reasoningLabel(reasoning) }}</span>
         <Icon icon="mdi:chevron-right" width="18" class="row-arrow" />
