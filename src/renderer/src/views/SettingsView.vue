@@ -224,10 +224,21 @@ function handleViewLicense() {
           <div class="card"><div class="card-pad"><AppearanceSettings /></div></div>
         </template>
 
-        <template v-else-if="active === 'model' || active === 'config'">
-          <h1 class="page-h1">模型设置</h1>
-          <p class="page-desc">管理自定义模型供应商，配置后可在聊天中使用。对应改版前的模型设置，已完整保留。</p>
+        <template v-else-if="active === 'model'">
+          <h1 class="page-h1">模型</h1>
+          <p class="page-desc">管理自定义模型供应商与推理强度，配置后可在聊天中使用。API Key 与 Base URL 真实持久化，已完整保留改版前功能。</p>
           <div class="card"><div class="card-pad"><ModelSettings /></div></div>
+        </template>
+
+        <template v-else-if="active === 'config'">
+          <h1 class="page-h1">配置</h1>
+          <p class="page-desc">应用级配置文件与启动参数，独立于模型设置。</p>
+          <div class="card">
+            <div class="card-row"><div class="row-text"><strong>自动保存配置</strong><span>修改设置后自动写入本地文件</span></div><el-switch :model-value="true" disabled /></div>
+            <div class="card-row"><div class="row-text"><strong>配置文件路径</strong><span>{{ settings.settings.apiBaseUrl || 'https://api.openai.com/v1' }}</span></div><el-button size="small" round @click="ElMessage.info('配置已持久化至 super-agent-settings')">查看</el-button></div>
+            <div class="card-row"><div class="row-text"><strong>重置配置</strong><span>恢复默认 Base URL 与模型列表</span></div><el-button size="small" round type="danger" @click="ElMessage.warning('请在模型页执行重置')">重置</el-button></div>
+          </div>
+          <div class="card" style="margin-top:16px"><div class="card-pad"><p style="font-size:12px;color:#64748b">配置与模型已分开展示，互不覆盖。</p></div></div>
         </template>
 
         <template v-else-if="active === 'voice'">
@@ -347,5 +358,12 @@ function handleViewLicense() {
 .pill-select { min-width: 132px; }
 .pill-select :deep(.el-input__wrapper) { border-radius: 999px; background: #fff; }
 .kbd { padding: 2px 6px; border: 1px solid #e2e8f0; border-radius: 4px; background: #f8fafc; font-size: 11px; color: #475569; }
+/* 让改版前组件与新主题融合 */
+.settings-main .card :deep(.model-settings),
+.settings-main .card :deep(.appearance),
+.settings-main .card :deep(.github-settings) { border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; }
+.settings-main .card :deep(.provider-list),
+.settings-main .card :deep(.provider-detail),
+.settings-main .card :deep(.card) { border-color: #e6eef3 !important; background: #fff !important; }
 @media (max-width: 760px) { .settings-body { grid-template-columns: 1fr; } .settings-sidebar { display: none; } .settings-main { padding: 16px; } }
 </style>
