@@ -559,18 +559,38 @@ function submit() {
 .approve-btn:hover { background: color-mix(in srgb, var(--hover-bg) 80%, transparent); color: var(--text-primary); }
 .approve-wrap { position: relative; display: inline-flex; }
 .approve-btn--full {
+  position: relative;
+  overflow: hidden;
   color: #e65100;
-  border-color: rgba(230, 81, 0, 0.28);
-  background: color-mix(in srgb, rgba(230,81,0,0.08) 80%, transparent);
-  backdrop-filter: blur(6px);
+  border-color: color-mix(in srgb, rgba(230,81,0,0.24) 60%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, rgba(255,243,224,0.96) 85%, transparent), color-mix(in srgb, rgba(255,183,77,0.18) 75%, transparent));
+  backdrop-filter: blur(14px) saturate(1.6);
+  -webkit-backdrop-filter: blur(14px) saturate(1.6);
+  box-shadow: 0 2px 10px rgba(230,81,0,0.14), inset 0 1px 1px rgba(255,255,255,0.65);
 }
+.approve-btn--full::before {
+  content: '';
+  position: absolute;
+  inset: -30% -50%;
+  background: linear-gradient(120deg, transparent 32%, rgba(255,255,255,0.52) 48%, transparent 64%);
+  transform: translateX(-100%) skewX(-14deg);
+  animation: liquid-shine 3s ease-in-out infinite;
+  pointer-events: none;
+}
+.approve-btn--full > * { position: relative; z-index: 1; }
 .approve-btn--full:hover {
-  background: color-mix(in srgb, rgba(230,81,0,0.12) 85%, transparent);
+  background: linear-gradient(135deg, color-mix(in srgb, rgba(255,243,224,0.98) 88%, transparent), color-mix(in srgb, rgba(255,183,77,0.24) 78%, transparent));
   color: #bf360c;
 }
 .approve-btn--request {
   color: var(--text-primary);
   background: color-mix(in srgb, var(--surface-bg) 65%, transparent);
+}
+@keyframes liquid-shine {
+  0% { transform: translateX(-100%) skewX(-14deg); }
+  45% { transform: translateX(-100%) skewX(-14deg); }
+  72% { transform: translateX(100%) skewX(-14deg); }
+  100% { transform: translateX(100%) skewX(-14deg); }
 }
 
 .model-popover-wrap { position: relative; display: inline-flex; align-items: center; }

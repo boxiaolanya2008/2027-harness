@@ -70,9 +70,11 @@ const options: Array<{
   z-index: 20;
   width: 360px;
   padding: 8px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid color-mix(in srgb, var(--glass-border) 70%, transparent);
   border-radius: 12px;
-  background: var(--surface-bg);
+  background: color-mix(in srgb, var(--surface-bg) 92%, transparent);
+  backdrop-filter: blur(14px) saturate(1.5);
+  -webkit-backdrop-filter: blur(14px) saturate(1.5);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
@@ -90,10 +92,36 @@ const options: Array<{
 }
 
 .approval-row:hover {
-  background: var(--hover-bg);
+  background: color-mix(in srgb, var(--hover-bg) 80%, transparent);
 }
 .approval-row.active {
-  background: var(--hover-bg);
+  background: color-mix(in srgb, var(--hover-bg) 90%, transparent);
+}
+.approval-row.danger {
+  position: relative;
+  overflow: hidden;
+}
+.approval-row.danger.active {
+  background: linear-gradient(135deg, color-mix(in srgb, rgba(255,243,224,0.96) 85%, transparent), color-mix(in srgb, rgba(255,183,77,0.22) 70%, transparent));
+  backdrop-filter: blur(14px) saturate(1.6);
+  -webkit-backdrop-filter: blur(14px) saturate(1.6);
+  border: 1px solid color-mix(in srgb, rgba(230,81,0,0.22) 55%, transparent);
+  box-shadow: 0 4px 16px rgba(230,81,0,0.14), inset 0 1px 1px rgba(255,255,255,0.75), inset 0 -1px 1px rgba(230,81,0,0.06);
+}
+.approval-row.danger.active::before {
+  content: '';
+  position: absolute;
+  inset: -30% -50%;
+  background: linear-gradient(120deg, transparent 32%, rgba(255,255,255,0.55) 48%, transparent 64%);
+  transform: translateX(-100%) skewX(-14deg);
+  animation: liquid-shine 3s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes liquid-shine {
+  0% { transform: translateX(-100%) skewX(-14deg); }
+  45% { transform: translateX(-100%) skewX(-14deg); }
+  72% { transform: translateX(100%) skewX(-14deg); }
+  100% { transform: translateX(100%) skewX(-14deg); }
 }
 
 .row-icon {
