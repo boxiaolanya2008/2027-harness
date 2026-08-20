@@ -306,7 +306,7 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
           />
         </nav>
 
-        <!-- 底部输入区：顶部灰条与输入卡分离，工作区信息居中 -->
+        <!-- 底部输入区：灰条仅展示工作区信息（已移除布局入口，入口唯一在右上角），居中紧凑 -->
         <div class="composer-area">
           <div class="composer-info-bar">
             <div class="info-center">
@@ -316,7 +316,6 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
               <button class="info-item info-item--btn" @click="handlePickWorkspace" title="本地工作区"><Icon icon="mdi:monitor" width="14" /> 本地</button>
               <button class="info-item info-item--btn" @click="handleBranchClick" :title="`当前分支: ${currentBranch}，点击查看`"><Icon icon="mdi:source-branch" width="14" /> {{ currentBranch }}</button>
             </div>
-            <button class="info-icon" title="布局" @click="rightOpen = !rightOpen"><Icon icon="mdi:dock-right" width="14" /></button>
           </div>
           <ChatComposer
             v-model="input"
