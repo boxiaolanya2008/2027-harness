@@ -17,6 +17,16 @@ const search = ref('')
 type NavId = 'general' | 'appearance' | 'voice' | 'config' | 'model' | 'personal' | 'pet' | 'keys' | 'account' | 'plugin' | 'browser' | 'computer' | 'hooks' | 'connection' | 'git' | 'env' | 'worktrees' | 'archived'
 const active = ref<NavId>('general')
 
+// —— 侧边栏展开/收起 ——
+const sidebarCollapsed = ref(false)
+const collapsedGroups = ref<Set<string>>(new Set())
+function toggleGroup(title: string) {
+  const next = new Set(collapsedGroups.value)
+  if (next.has(title)) next.delete(title)
+  else next.add(title)
+  collapsedGroups.value = next
+}
+
 // —— 权限 ——
 const defaultPermission = ref(localStorage.getItem('codex_default_permission') !== 'false')
 watch(defaultPermission, v => localStorage.setItem('codex_default_permission', String(v)))
@@ -117,6 +127,9 @@ function handleViewLicense() {
     </div>
 
     <div class="settings-header">
+      <button class="collapse-btn" :class="{ collapsed: sidebarCollapsed }" title="收起侧边栏" @click="sidebarCollapsed = !sidebarCollapsed">
+        <Icon :icon="sidebarCollapsed ? 'mdi:chevron-right' : 'mdi:chevron-left'" width="16" />
+      </button>
       <button class="back-btn" @click="router.push('/')"><Icon icon="mdi:arrow-left" width="16" /> 返回应用</button>
       <div class="search-wrap">
         <Icon icon="mdi:magnify" width="16" class="search-icon" />
@@ -124,195 +137,204 @@ function handleViewLicense() {
       </div>
     </div>
 
-    <div class="settings-body">
-      <aside class="settings-sidebar">
+    <div class="settings-body" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+      <aside class="settings-sidebar" :class="{ collapsed: sidebarCollapsed }">
         <div v-for="g in filteredGroups" :key="g.title" class="nav-group">
-          <div class="nav-title">{{ g.title }}</div>
-          <button
-            v-for="it in g.items"
-            :key="it.id"
-            class="nav-item"
-            :class="{ active: active === it.id }"
-            @click="active = it.id"
-          >
-            <Icon :icon="it.icon" width="16" />
-            <span>{{ it.label }}</span>
-            <Icon v-if="(it as any).external" icon="mdi:open-in-new" width="12" class="external" />
+          <button class="nav-title" @click="toggleGroup(g.title)">
+            <span>{{ g.title }}</span>
+            <Icon :icon="collapsedGroups.has(g.title) ? 'mdi:chevron-right' : 'mdi:chevron-down'" width="14" class="group-chevron" />
           </button>
+          <Transition name="nav-collapse">
+            <div v-show="!collapsedGroups.has(g.title)" class="nav-items">
+              <button
+                v-for="it in g.items"
+                :key="it.id"
+                class="nav-item"
+                :class="{ active: active === it.id }"
+                @click="active = it.id"
+              >
+                <Icon :icon="it.icon" width="16" />
+                <span>{{ it.label }}</span>
+                <Icon v-if="(it as any).external" icon="mdi:open-in-new" width="12" class="external" />
+              </button>
+            </div>
+          </Transition>
         </div>
         <div v-if="!filteredGroups.length" class="nav-empty">无匹配设置</div>
       </aside>
 
       <main class="settings-main">
-        <!-- 常规：完整复刻图一 + 真实联动 -->
-        <template v-if="active === 'general'">
-          <h1 class="page-h1">常规</h1>
-          <section class="section">
-            <h2 class="section-h2">权限</h2>
-            <div class="card">
-              <div class="card-row">
-                <div class="row-text"><strong>默认权限</strong><span>默认情况下，ChatGPT 可以读取和编辑其工作空间中的文件。需要时，它可以请求额外访问权限</span></div>
-                <el-switch v-model="defaultPermission" />
-              </div>
-              <div class="card-row">
-                <div class="row-text"><strong>完整访问权限</strong><span>当 ChatGPT 以完整访问权限运行时，它无需你的批准即可编辑你电脑上的任何文件，并运行可访问网络的命令。这会显著增加数据丢失、泄露或意外行为的风险。<a href="#" @click.prevent="ElMessage.info('风险：仅在隔离环境开启')">了解更多</a>关于风险升高的信息。</span></div>
-                <el-switch v-model="fullAccess" />
-              </div>
-            </div>
-          </section>
+        <Transition name="page-fade" mode="out-in">
+          <div :key="active">
+            <template v-if="active === 'general'">
+              <h1 class="page-h1">常规</h1>
+              <section class="section">
+                <h2 class="section-h2">权限</h2>
+                <div class="card">
+                  <div class="card-row">
+                    <div class="row-text"><strong>默认权限</strong><span>默认情况下，ChatGPT 可以读取和编辑其工作空间中的文件。需要时，它可以请求额外访问权限</span></div>
+                    <el-switch v-model="defaultPermission" />
+                  </div>
+                  <div class="card-row">
+                    <div class="row-text"><strong>完整访问权限</strong><span>当 ChatGPT 以完整访问权限运行时，它无需你的批准即可编辑你电脑上的任何文件，并运行可访问网络的命令。这会显著增加数据丢失、泄露或意外行为的风险。<a href="#" @click.prevent="ElMessage.info('风险：仅在隔离环境开启')">了解更多</a>关于风险升高的信息。</span></div>
+                    <el-switch v-model="fullAccess" />
+                  </div>
+                </div>
+              </section>
 
-          <section class="section">
-            <h2 class="section-h2">常规</h2>
-            <div class="card">
-              <div class="card-row">
-                <div class="row-text"><strong>默认文件打开目标</strong><span>默认打开文件和文件夹的位置</span></div>
-                <el-select v-model="fileTarget" size="small" class="pill-select">
-                  <el-option label="VS Code" value="VS Code" />
-                  <el-option label="系统默认" value="系统默认" />
-                  <el-option label="Cursor" value="Cursor" />
-                </el-select>
-              </div>
-              <div class="card-row">
-                <div class="row-text"><strong>集成终端 Shell</strong><span>选择要在集成终端中打开的 Shell。</span></div>
-                <el-select v-model="shell" size="small" class="pill-select">
-                  <el-option label="PowerShell" value="PowerShell" />
-                  <el-option label="CMD" value="CMD" />
-                  <el-option label="Git Bash" value="Git Bash" />
-                </el-select>
-              </div>
-              <div class="card-row">
-                <div class="row-text"><strong>语言</strong><span>应用 UI 语言</span></div>
-                <el-select v-model="language" size="small" class="pill-select">
-                  <el-option label="自动检测" value="自动检测" />
-                  <el-option label="简体中文" value="简体中文" />
-                  <el-option label="English" value="English" />
-                </el-select>
-              </div>
-              <div class="card-row">
-                <div class="row-text"><strong>底部面板</strong><span>在应用标题栏中显示底部面板控件</span></div>
-                <el-switch v-model="bottomPanel" />
-              </div>
-              <div class="card-row">
-                <div class="row-text"><strong>从其他 AI 应用导入工作内容</strong><span>导入您的设置、项目和最近聊天记录</span></div>
-                <el-button size="small" round @click="handleImport">导入</el-button>
-              </div>
-              <div class="card-row">
-                <div class="row-text"><strong>打开源许可证</strong><span>捆绑依赖项的第三方声明</span></div>
-                <el-button size="small" round @click="handleViewLicense">查看</el-button>
-              </div>
-              <div class="card-row">
-                <div class="row-text"><strong>插件</strong><span>允许 ChatGPT 使用已安装插件</span></div>
-                <el-switch v-model="pluginEnabled" />
-              </div>
-            </div>
-          </section>
+              <section class="section">
+                <h2 class="section-h2">常规</h2>
+                <div class="card">
+                  <div class="card-row">
+                    <div class="row-text"><strong>默认文件打开目标</strong><span>默认打开文件和文件夹的位置</span></div>
+                    <el-select v-model="fileTarget" size="small" class="pill-select">
+                      <el-option label="VS Code" value="VS Code" />
+                      <el-option label="系统默认" value="系统默认" />
+                      <el-option label="Cursor" value="Cursor" />
+                    </el-select>
+                  </div>
+                  <div class="card-row">
+                    <div class="row-text"><strong>集成终端 Shell</strong><span>选择要在集成终端中打开的 Shell。</span></div>
+                    <el-select v-model="shell" size="small" class="pill-select">
+                      <el-option label="PowerShell" value="PowerShell" />
+                      <el-option label="CMD" value="CMD" />
+                      <el-option label="Git Bash" value="Git Bash" />
+                    </el-select>
+                  </div>
+                  <div class="card-row">
+                    <div class="row-text"><strong>语言</strong><span>应用 UI 语言</span></div>
+                    <el-select v-model="language" size="small" class="pill-select">
+                      <el-option label="自动检测" value="自动检测" />
+                      <el-option label="简体中文" value="简体中文" />
+                      <el-option label="English" value="English" />
+                    </el-select>
+                  </div>
+                  <div class="card-row">
+                    <div class="row-text"><strong>底部面板</strong><span>在应用标题栏中显示底部面板控件</span></div>
+                    <el-switch v-model="bottomPanel" />
+                  </div>
+                  <div class="card-row">
+                    <div class="row-text"><strong>从其他 AI 应用导入工作内容</strong><span>导入您的设置、项目和最近聊天记录</span></div>
+                    <el-button size="small" round @click="handleImport">导入</el-button>
+                  </div>
+                  <div class="card-row">
+                    <div class="row-text"><strong>打开源许可证</strong><span>捆绑依赖项的第三方声明</span></div>
+                    <el-button size="small" round @click="handleViewLicense">查看</el-button>
+                  </div>
+                  <div class="card-row">
+                    <div class="row-text"><strong>插件</strong><span>允许 ChatGPT 使用已安装插件</span></div>
+                    <el-switch v-model="pluginEnabled" />
+                  </div>
+                </div>
+              </section>
 
-          <section class="section">
-            <h2 class="section-h2">编辑器</h2>
-            <div class="card">
-              <div class="card-row">
-                <div class="row-text"><strong>纯文本编辑器</strong><span>使用纯文本模式打开未知文件</span></div>
-                <el-switch v-model="plainEditor" />
+              <section class="section">
+                <h2 class="section-h2">编辑器</h2>
+                <div class="card">
+                  <div class="card-row">
+                    <div class="row-text"><strong>纯文本编辑器</strong><span>使用纯文本模式打开未知文件</span></div>
+                    <el-switch v-model="plainEditor" />
+                  </div>
+                </div>
+              </section>
+            </template>
+
+            <template v-else-if="active === 'appearance'">
+              <h1 class="page-h1">外观</h1>
+              <p class="page-desc">调整工作台的主题、密度和显示间距。</p>
+              <div class="card"><div class="card-pad"><AppearanceSettings /></div></div>
+            </template>
+
+            <template v-else-if="active === 'model'">
+              <h1 class="page-h1">模型</h1>
+              <p class="page-desc">管理自定义模型供应商与推理强度，配置后可在聊天中使用。API Key 与 Base URL 真实持久化，已完整保留改版前功能。</p>
+              <ModelSettings />
+            </template>
+
+            <template v-else-if="active === 'config'">
+              <h1 class="page-h1">配置</h1>
+              <p class="page-desc">应用级配置文件与启动参数，独立于模型设置。</p>
+              <div class="card">
+                <div class="card-row"><div class="row-text"><strong>自动保存配置</strong><span>修改设置后自动写入本地文件</span></div><el-switch :model-value="true" disabled /></div>
+                <div class="card-row"><div class="row-text"><strong>配置文件路径</strong><span>{{ settings.settings.apiBaseUrl || 'https://api.openai.com/v1' }}</span></div><el-button size="small" round @click="ElMessage.info('配置已持久化至 super-agent-settings')">查看</el-button></div>
+                <div class="card-row"><div class="row-text"><strong>重置配置</strong><span>恢复默认 Base URL 与模型列表</span></div><el-button size="small" round type="danger" @click="ElMessage.warning('请在模型页执行重置')">重置</el-button></div>
               </div>
-            </div>
-          </section>
-        </template>
+            </template>
 
-        <template v-else-if="active === 'appearance'">
-          <h1 class="page-h1">外观</h1>
-          <p class="page-desc">调整工作台的主题、密度和显示间距。</p>
-          <div class="card"><div class="card-pad"><AppearanceSettings /></div></div>
-        </template>
+            <template v-else-if="active === 'voice'">
+              <h1 class="page-h1">语音</h1>
+              <div class="card">
+                <div class="card-row"><div class="row-text"><strong>启用语音输入</strong><span>允许按住空格进行语音转文字</span></div><el-switch v-model="voiceEnabled" /></div>
+                <div class="card-row"><div class="row-text"><strong>语音自动播放</strong><span>助手回复后自动朗读</span></div><el-switch :model-value="false" disabled /></div>
+              </div>
+            </template>
 
-        <template v-else-if="active === 'model'">
-          <h1 class="page-h1">模型</h1>
-          <p class="page-desc">管理自定义模型供应商与推理强度，配置后可在聊天中使用。API Key 与 Base URL 真实持久化，已完整保留改版前功能。</p>
-          <ModelSettings />
-        </template>
+            <template v-else-if="active === 'personal'">
+              <h1 class="page-h1">个性化</h1>
+              <div class="card"><div class="card-row"><div class="row-text"><strong>记住偏好</strong><span>让模型记住你的编码风格</span></div><el-switch :model-value="true" /></div></div>
+            </template>
 
-        <template v-else-if="active === 'config'">
-          <h1 class="page-h1">配置</h1>
-          <p class="page-desc">应用级配置文件与启动参数，独立于模型设置。</p>
-          <div class="card">
-            <div class="card-row"><div class="row-text"><strong>自动保存配置</strong><span>修改设置后自动写入本地文件</span></div><el-switch :model-value="true" disabled /></div>
-            <div class="card-row"><div class="row-text"><strong>配置文件路径</strong><span>{{ settings.settings.apiBaseUrl || 'https://api.openai.com/v1' }}</span></div><el-button size="small" round @click="ElMessage.info('配置已持久化至 super-agent-settings')">查看</el-button></div>
-            <div class="card-row"><div class="row-text"><strong>重置配置</strong><span>恢复默认 Base URL 与模型列表</span></div><el-button size="small" round type="danger" @click="ElMessage.warning('请在模型页执行重置')">重置</el-button></div>
+            <template v-else-if="active === 'pet'">
+              <h1 class="page-h1">宠物</h1>
+              <div class="card"><div class="card-row"><div class="row-text"><strong>启用桌面宠物</strong><span>在工作区显示宠物挂件</span></div><el-switch v-model="petEnabled" /></div></div>
+            </template>
+
+            <template v-else-if="active === 'keys'">
+              <h1 class="page-h1">键盘快捷键</h1>
+              <div class="card">
+                <div class="card-row" v-for="k in [['新建任务','Ctrl+N'],['发送','Enter'],['停止','Esc'],['搜索设置','Ctrl+F']]" :key="k[0]"><div class="row-text"><strong>{{ k[0] }}</strong></div><code class="kbd">{{ k[1] }}</code></div>
+              </div>
+            </template>
+
+            <template v-else-if="active === 'account'">
+              <h1 class="page-h1">账户</h1>
+              <p class="page-desc">管理 GitHub 连接和本地 Git 身份（已恢复改版前功能）。</p>
+              <div class="card"><div class="card-pad"><GithubSettings /></div></div>
+            </template>
+
+            <template v-else-if="active === 'plugin' || active === 'browser' || active === 'computer'">
+              <h1 class="page-h1">{{ navGroups.flatMap(g=>g.items).find(i=>i.id===active)?.label }}</h1>
+              <div class="card">
+                <div class="card-row"><div class="row-text"><strong>启用 {{ navGroups.flatMap(g=>g.items).find(i=>i.id===active)?.label }}</strong><span>控制该集成是否可用</span></div>
+                  <el-switch v-model="browserEnabled" v-if="active==='browser'" />
+                  <el-switch v-model="computerControl" v-else-if="active==='computer'" />
+                  <el-switch v-model="pluginEnabled" v-else />
+                </div>
+              </div>
+            </template>
+
+            <template v-else-if="active === 'hooks' || active === 'connection' || active === 'git' || active === 'env' || active === 'worktrees'">
+              <h1 class="page-h1">{{ navGroups.flatMap(g=>g.items).find(i=>i.id===active)?.label }}</h1>
+              <p class="page-desc">该分组已恢复改版前的 Git / 连接能力。</p>
+              <div class="card"><div class="card-pad"><GithubSettings v-if="active==='git' || active==='connection'" /><div v-else class="row-text"><span>环境变量与连接配置已接入本地检测，详见 Git 面板</span></div></div></div>
+              <div class="card" style="margin-top:12px">
+                <div class="card-row">
+                  <div class="row-text"><strong>Git 环境</strong><span>当前检测：{{ settings.gitIdentity.name || '未配置' }} / {{ settings.gitIdentity.email || '未配置' }}</span></div>
+                  <el-button size="small" round @click="settings.refreshGitIdentity()">重新检测</el-button>
+                </div>
+                <div class="card-row">
+                  <div class="row-text"><strong>环境变量</strong><span>使用 {{ gitEnv }}</span></div>
+                  <el-select v-model="gitEnv" size="small" class="pill-select"><el-option label="系统 Git" value="系统 Git" /><el-option label="内置 Git" value="内置 Git" /></el-select>
+                </div>
+                <div class="card-row">
+                  <div class="row-text"><strong>Worktrees</strong><span>启用多工作树并行</span></div>
+                  <el-switch v-model="worktreeEnabled" />
+                </div>
+              </div>
+            </template>
+
+            <template v-else-if="active === 'archived'">
+              <h1 class="page-h1">已归档的聊天</h1>
+              <div class="card">
+                <div v-if="!chat.projects.filter(p=>p.archivedAt).length" class="card-row"><div class="row-text"><span>暂无已归档项目</span></div></div>
+                <div v-for="p in chat.projects.filter(pr=>pr.archivedAt)" :key="p.id" class="card-row">
+                  <div class="row-text"><strong>{{ p.name }}</strong><span>{{ p.workspace }}</span></div>
+                  <span style="font-size:12px;color:#64748b">{{ new Date(p.archivedAt!).toLocaleString() }}</span>
+                </div>
+              </div>
+            </template>
           </div>
-          <div class="card" style="margin-top:16px"><div class="card-pad"><p style="font-size:12px;color:#64748b">配置与模型已分开展示，互不覆盖。</p></div></div>
-        </template>
-
-        <template v-else-if="active === 'voice'">
-          <h1 class="page-h1">语音</h1>
-          <div class="card">
-            <div class="card-row"><div class="row-text"><strong>启用语音输入</strong><span>允许按住空格进行语音转文字</span></div><el-switch v-model="voiceEnabled" /></div>
-            <div class="card-row"><div class="row-text"><strong>语音自动播放</strong><span>助手回复后自动朗读</span></div><el-switch :model-value="false" disabled /></div>
-          </div>
-        </template>
-
-        <template v-else-if="active === 'personal'">
-          <h1 class="page-h1">个性化</h1>
-          <div class="card"><div class="card-row"><div class="row-text"><strong>记住偏好</strong><span>让模型记住你的编码风格</span></div><el-switch :model-value="true" /></div></div>
-        </template>
-
-        <template v-else-if="active === 'pet'">
-          <h1 class="page-h1">宠物</h1>
-          <div class="card"><div class="card-row"><div class="row-text"><strong>启用桌面宠物</strong><span>在工作区显示宠物挂件</span></div><el-switch v-model="petEnabled" /></div></div>
-        </template>
-
-        <template v-else-if="active === 'keys'">
-          <h1 class="page-h1">键盘快捷键</h1>
-          <div class="card">
-            <div class="card-row" v-for="k in [['新建任务','Ctrl+N'],['发送','Enter'],['停止','Esc'],['搜索设置','Ctrl+F']]" :key="k[0]"><div class="row-text"><strong>{{ k[0] }}</strong></div><code class="kbd">{{ k[1] }}</code></div>
-          </div>
-        </template>
-
-        <template v-else-if="active === 'account'">
-          <h1 class="page-h1">账户</h1>
-          <p class="page-desc">管理 GitHub 连接和本地 Git 身份（已恢复改版前功能）。</p>
-          <div class="card"><div class="card-pad"><GithubSettings /></div></div>
-        </template>
-
-        <template v-else-if="active === 'plugin' || active === 'browser' || active === 'computer'">
-          <h1 class="page-h1">{{ navGroups.flatMap(g=>g.items).find(i=>i.id===active)?.label }}</h1>
-          <div class="card">
-            <div class="card-row"><div class="row-text"><strong>启用 {{ navGroups.flatMap(g=>g.items).find(i=>i.id===active)?.label }}</strong><span>控制该集成是否可用</span></div>
-              <el-switch v-model="browserEnabled" v-if="active==='browser'" />
-              <el-switch v-model="computerControl" v-else-if="active==='computer'" />
-              <el-switch v-model="pluginEnabled" v-else />
-            </div>
-          </div>
-        </template>
-
-        <template v-else-if="active === 'hooks' || active === 'connection' || active === 'git' || active === 'env' || active === 'worktrees'">
-          <h1 class="page-h1">{{ navGroups.flatMap(g=>g.items).find(i=>i.id===active)?.label }}</h1>
-          <p class="page-desc">该分组已恢复改版前的 Git / 连接能力。</p>
-          <div class="card"><div class="card-pad"><GithubSettings v-if="active==='git' || active==='connection'" /><div v-else class="row-text"><span>环境变量与连接配置已接入本地检测，详见 Git 面板</span></div></div></div>
-          <div class="card" style="margin-top:12px">
-            <div class="card-row">
-              <div class="row-text"><strong>Git 环境</strong><span>当前检测：{{ settings.gitIdentity.name || '未配置' }} / {{ settings.gitIdentity.email || '未配置' }}</span></div>
-              <el-button size="small" round @click="settings.refreshGitIdentity()">重新检测</el-button>
-            </div>
-            <div class="card-row">
-              <div class="row-text"><strong>环境变量</strong><span>使用 {{ gitEnv }}</span></div>
-              <el-select v-model="gitEnv" size="small" class="pill-select"><el-option label="系统 Git" value="系统 Git" /><el-option label="内置 Git" value="内置 Git" /></el-select>
-            </div>
-            <div class="card-row">
-              <div class="row-text"><strong>Worktrees</strong><span>启用多工作树并行</span></div>
-              <el-switch v-model="worktreeEnabled" />
-            </div>
-          </div>
-        </template>
-
-        <template v-else-if="active === 'archived'">
-          <h1 class="page-h1">已归档的聊天</h1>
-          <div class="card">
-            <div v-if="!chat.projects.filter(p=>p.archivedAt).length" class="card-row"><div class="row-text"><span>暂无已归档项目</span></div></div>
-            <div v-for="p in chat.projects.filter(pr=>pr.archivedAt)" :key="p.id" class="card-row">
-              <div class="row-text"><strong>{{ p.name }}</strong><span>{{ p.workspace }}</span></div>
-              <span style="font-size:12px;color:#64748b">{{ new Date(p.archivedAt!).toLocaleString() }}</span>
-            </div>
-          </div>
-        </template>
+        </Transition>
       </main>
     </div>
   </div>
@@ -325,20 +347,48 @@ function handleViewLicense() {
 .win-title { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #4a5568; }
 .win-title::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; display: inline-block; }
 .win-controls { display: flex; gap: 12px; font-size: 14px; }
-.settings-header { height: 44px; display: flex; align-items: center; gap: 16px; padding: 0 12px; border-bottom: 1px solid #eef2f6; background: #fff; }
+.settings-header { height: 44px; display: flex; align-items: center; gap: 12px; padding: 0 12px; border-bottom: 1px solid #eef2f6; background: #fff; }
+.collapse-btn {
+  display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid #e2e8f0; border-radius: 6px;
+  background: #fff; color: #64748b; cursor: pointer; transition: all 0.2s ease;
+}
+.collapse-btn:hover { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; }
+.collapse-btn.collapsed { transform: rotate(180deg); }
 .back-btn { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: #4a6572; cursor: pointer; font-size: 13px; }
 .back-btn:hover { color: #1a1a1a; }
-.search-wrap { position: relative; width: 220px; display: flex; align-items: center; }
-.search-wrap input { width: 100%; height: 30px; padding: 0 12px 0 30px; border: 1px solid #e2e8f0; border-radius: 999px; background: #fff; outline: none; font-size: 13px; }
+.search-wrap { position: relative; width: 220px; display: flex; align-items: center; transition: width 0.2s ease; }
+.search-wrap input { width: 100%; height: 30px; padding: 0 12px 0 30px; border: 1px solid #e2e8f0; border-radius: 999px; background: #fff; outline: none; font-size: 13px; transition: border-color 0.2s, box-shadow 0.2s; }
+.search-wrap input:focus { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(147,197,253,0.2); }
 .search-wrap input::placeholder { color: #94a3b8; }
 .search-icon { position: absolute; left: 10px; color: #94a3b8; }
-.settings-body { flex: 1; display: grid; grid-template-columns: 220px minmax(0,1fr); min-height: 0; }
-.settings-sidebar { background: #f0f7fa; border-right: 1px solid #e6eef3; overflow: auto; padding: 12px 8px; }
-.nav-group { margin-bottom: 16px; }
-.nav-title { padding: 6px 8px 4px; font-size: 11px; color: #94a3b8; font-weight: 600; }
-.nav-item { width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 0; border-radius: 6px; background: transparent; color: #334155; font-size: 13px; text-align: left; cursor: pointer; }
-.nav-item:hover { background: rgba(255,255,255,0.6); }
-.nav-item.active { background: #e2eef5; color: #0f172a; }
+.settings-body { flex: 1; display: grid; grid-template-columns: 220px minmax(0,1fr); min-height: 0; transition: grid-template-columns 0.32s cubic-bezier(0.32,0.72,0,1); }
+.settings-body.sidebar-collapsed { grid-template-columns: 0 minmax(0,1fr); }
+.settings-sidebar {
+  background: linear-gradient(180deg, #f0f7fa 0%, #e6eef3 100%); border-right: 1px solid #e6eef3; overflow: hidden;
+  display: flex; flex-direction: column; padding: 12px 8px; transition: all 0.32s cubic-bezier(0.32,0.72,0,1);
+}
+.settings-body.sidebar-collapsed .settings-sidebar { transform: translateX(-100%); opacity: 0; padding: 12px 0; border-right: 0; }
+.nav-group { margin-bottom: 14px; }
+.nav-title {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 6px 8px 4px;
+  border: 0; background: transparent; font-size: 11px; color: #94a3b8; font-weight: 600; cursor: pointer; border-radius: 6px;
+}
+.nav-title:hover { background: rgba(255,255,255,0.5); color: #64748b; }
+.group-chevron { transition: transform 0.22s ease; }
+.nav-items { display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+.nav-item {
+  width: 100%; display: flex; align-items: center; gap: 8px; padding: 7px 8px; border: 0; border-radius: 8px;
+  background: transparent; color: #334155; font-size: 13px; text-align: left; cursor: pointer;
+  transition: all 0.18s ease; position: relative;
+}
+.nav-item:hover { background: rgba(255,255,255,0.7); transform: translateX(1px); }
+.nav-item.active {
+  background: #fff; color: #0f172a; box-shadow: 0 1px 4px rgba(0,0,0,0.06), 0 0 0 1px rgba(226,238,245,0.8);
+}
+.nav-item.active::before {
+  content: ''; position: absolute; left: -8px; top: 50%; transform: translateY(-50%);
+  width: 3px; height: 18px; border-radius: 0 3px 3px 0; background: #0ea5e9;
+}
 .external { margin-left: auto; color: #94a3b8; }
 .nav-empty { padding: 12px; text-align: center; color: #94a3b8; font-size: 12px; }
 .settings-main { overflow: auto; padding: 24px 36px 40px; background: #fff; }
@@ -346,27 +396,39 @@ function handleViewLicense() {
 .page-desc { margin: -12px 0 16px; font-size: 12px; color: #64748b; }
 .section { margin-bottom: 28px; }
 .section-h2 { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: #0f172a; }
-.card { border: 1px solid #e6eef3; border-radius: 10px; background: #fff; overflow: hidden; }
+.card { border: 1px solid #e6eef3; border-radius: 10px; background: #fff; overflow: hidden; transition: box-shadow 0.2s ease; }
+.card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.04); }
 .card-pad { padding: 16px; }
-.card-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border-top: 1px solid #f1f5f9; min-height: 56px; }
+.card-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border-top: 1px solid #f1f5f9; min-height: 56px; transition: background 0.15s ease; }
 .card-row:first-child { border-top: 0; }
+.card-row:hover { background: #f8fafc; }
 .row-text { display: flex; flex-direction: column; gap: 4px; max-width: 560px; }
 .row-text strong { font-size: 13px; font-weight: 600; color: #0f172a; }
 .row-text span { font-size: 12px; color: #64748b; line-height: 1.5; }
 .row-text a { color: #2563eb; text-decoration: none; }
 .row-text a:hover { text-decoration: underline; }
 .pill-select { min-width: 132px; }
-.pill-select :deep(.el-input__wrapper) { border-radius: 999px; background: #fff; height: 30px; }
+.pill-select :deep(.el-input__wrapper) { border-radius: 999px; background: #fff; height: 30px; transition: all 0.2s ease; }
+.pill-select :deep(.el-input__wrapper:hover) { box-shadow: 0 0 0 1px #cbd5e1 inset; }
 .card-row :deep(.el-switch) { --el-switch-height: 20px; flex: 0 0 auto; }
-.card-row :deep(.el-button) { height: 30px; border-radius: 999px; }
+.card-row :deep(.el-button) { height: 30px; border-radius: 999px; transition: all 0.15s ease; }
 .card-row :deep(.el-button--small) { height: 28px; }
 .kbd { padding: 2px 6px; border: 1px solid #e2e8f0; border-radius: 4px; background: #f8fafc; font-size: 11px; color: #475569; }
-/* 让改版前组件与新主题融合 */
 .settings-main .card :deep(.model-settings),
 .settings-main .card :deep(.appearance),
 .settings-main .card :deep(.github-settings) { border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; }
 .settings-main .card :deep(.provider-list),
 .settings-main .card :deep(.provider-detail),
 .settings-main .card :deep(.card) { border-color: #e6eef3 !important; background: #fff !important; }
+
+/* 平滑动画 */
+.nav-collapse-enter-active, .nav-collapse-leave-active { transition: all 0.28s cubic-bezier(0.32,0.72,0,1); overflow: hidden; }
+.nav-collapse-enter-from, .nav-collapse-leave-to { max-height: 0; opacity: 0; transform: translateY(-4px); }
+.nav-collapse-enter-to, .nav-collapse-leave-from { max-height: 500px; opacity: 1; transform: translateY(0); }
+.page-fade-enter-active { transition: all 0.22s ease; }
+.page-fade-leave-active { transition: all 0.14s ease; }
+.page-fade-enter-from { opacity: 0; transform: translateY(6px); }
+.page-fade-leave-to { opacity: 0; transform: translateY(-4px); }
+
 @media (max-width: 760px) { .settings-body { grid-template-columns: 1fr; } .settings-sidebar { display: none; } .settings-main { padding: 16px; } }
 </style>

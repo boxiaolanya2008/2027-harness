@@ -20,6 +20,7 @@ const settings = useSettingsStore()
 const input = ref('')
 const listRef = ref<HTMLElement | null>(null)
 const rightOpen = ref(false)
+const leftCollapsed = ref(false)
 const LAYOUT_KEY = 'super-agent-pane-layout'
 const leftWidth = ref(200)
 const rightWidth = ref(320)
@@ -208,15 +209,18 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
 
 <template>
   <div class="codex-window">
-    <!-- 顶部窗口栏：左侧菜单，右侧为侧边栏入口（按圈选固定于右上角） -->
+    <!-- 顶部窗口栏 -->
     <div class="window-bar">
       <div class="window-bar-left">
+        <button class="win-toggle" :class="{ collapsed: leftCollapsed }" title="展开/收起侧边栏" @click="leftCollapsed = !leftCollapsed">
+          <Icon :icon="leftCollapsed ? 'mdi:chevron-right' : 'mdi:chevron-left'" width="14" />
+        </button>
         <span class="win-dot" />
         <span class="win-nav"><Icon icon="mdi:arrow-left" width="14" /> <Icon icon="mdi:arrow-right" width="14" /></span>
         <span class="win-menu">文件</span><span class="win-menu">编辑</span><span class="win-menu">视图</span><span class="win-menu">帮助</span>
       </div>
       <div class="window-bar-right">
-        <button class="win-sidebar-entry" title="切换侧边栏" @click="rightOpen = !rightOpen">
+        <button class="win-sidebar-entry" title="切换右侧栏" @click="rightOpen = !rightOpen">
           <Icon icon="mdi:dock-right" width="16" />
         </button>
       </div>
@@ -224,12 +228,12 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
 
     <main
       class="workbench"
-      :class="{ 'workbench--right-closed': !rightOpen }"
-      :style="{ '--left-pane-width': leftWidth + 'px', '--right-pane-width': rightWidth + 'px' }"
+      :class="{ 'workbench--right-closed': !rightOpen, 'workbench--left-collapsed': leftCollapsed }"
+      :style="{ '--left-pane-width': (leftCollapsed ? '0px' : leftWidth + 'px'), '--right-pane-width': rightWidth + 'px' }"
     >
-      <aside class="left-pane">
+      <aside class="left-pane" :class="{ collapsed: leftCollapsed }">
         <WorkspaceSidebar />
-        <div class="pane-resizer" title="拖动调整侧栏宽度" @mousedown="startResize('left', $event)" />
+        <div v-if="!leftCollapsed" class="pane-resizer" title="拖动调整侧栏宽度" @mousedown="startResize('left', $event)" />
       </aside>
 
       <section class="center-pane">
@@ -369,9 +373,18 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
 .win-ctrl:hover { background: rgba(0,0,0,0.06); }
 .win-ctrl--close:hover { background: #ef4444; color: #fff; }
 
-.workbench { display: grid; grid-template-columns: var(--left-pane-width) minmax(0, 1fr) var(--right-pane-width); width: 100%; flex: 1 1 auto; min-height: 0; overflow: hidden; background: #fff; }
+.workbench { display: grid; grid-template-columns: var(--left-pane-width) minmax(0, 1fr) var(--right-pane-width); width: 100%; flex: 1 1 auto; min-height: 0; overflow: hidden; background: #fff; transition: grid-template-columns 0.32s cubic-bezier(0.32,0.72,0,1); }
 .workbench--right-closed { grid-template-columns: var(--left-pane-width) minmax(0, 1fr); }
-.left-pane { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: #f3f7f7; border-right: 1px solid #e6eef3; }
+.workbench--left-collapsed { grid-template-columns: 0 minmax(0, 1fr) var(--right-pane-width); }
+.workbench--left-collapsed.workbench--right-closed { grid-template-columns: 0 minmax(0, 1fr); }
+.left-pane { position: relative; display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; background: #f3f7f7; border-right: 1px solid #e6eef3; transition: all 0.32s cubic-bezier(0.32,0.72,0,1); }
+.left-pane.collapsed { opacity: 0; transform: translateX(-8px); pointer-events: none; border-right: 0; }
+.win-toggle {
+  display: grid; place-items: center; width: 22px; height: 22px; border: 1px solid #e2e8f0; border-radius: 6px;
+  background: #fff; color: #64748b; cursor: pointer; transition: all 0.2s ease;
+}
+.win-toggle:hover { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; transform: scale(1.05); }
+.win-toggle.collapsed { background: #e0f2fe; color: #0ea5e9; border-color: #7dd3fc; }
 .center-pane { position: relative; display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; background: #fff; }
 .message-scroll { position: relative; flex: 1 1 auto; min-width: 0; min-height: 0; overflow: auto; overscroll-behavior: contain; display: flex; flex-direction: column; }
 .codex-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px 60px; text-align: center; }
