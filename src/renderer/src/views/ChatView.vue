@@ -179,6 +179,16 @@ function handleSuggestion(text: string) {
   input.value = text
 }
 
+async function handlePickWorkspace() {
+  const path = await window.api.dialog.pickDir()
+  if (!path) return
+  await chat.selectWorkspace(path)
+  void updateCurrentBranch()
+}
+function handleBranchClick() {
+  ElMessage.info(`当前分支: ${currentBranch.value}，可在终端执行 git checkout 切换`)
+}
+
 watch(
   () => activeConversation.value?.messages.map((message) => `${message.id}:${message.content.length}:${message.events?.length || 0}`).join('|'),
   () => {
@@ -291,16 +301,19 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
           />
         </nav>
 
-        <!-- 底部输入区：顶部灰条 + 输入卡 -->
+        <!-- 底部输入区：顶部灰条与输入卡连体（可点击且真实联动） -->
         <div class="composer-area">
-          <div class="composer-info-bar">
-            <span class="info-item"><Icon icon="mdi:folder-outline" width="14" /> {{ activeWorkspaceName }}</span>
-            <span class="info-item"><Icon icon="mdi:monitor" width="14" /> 本地</span>
-            <span class="info-item"><Icon icon="mdi:source-branch" width="14" /> {{ currentBranch }}</span>
-            <span class="info-spacer" />
-            <button class="info-icon" title="布局" @click="rightOpen = !rightOpen"><Icon icon="mdi:dock-right" width="14" /></button>
-          </div>
-          <ChatComposer
+          <div class="composer-combined">
+            <div class="composer-info-bar">
+              <button class="info-item info-item--btn" @click="handlePickWorkspace" title="点击选择工作区">
+                <Icon icon="mdi:folder-outline" width="14" /> {{ activeWorkspaceName }}
+              </button>
+              <button class="info-item info-item--btn" @click="handlePickWorkspace" title="本地工作区"><Icon icon="mdi:monitor" width="14" /> 本地</button>
+              <button class="info-item info-item--btn" @click="handleBranchClick" :title="`当前分支: ${currentBranch}，点击查看`"><Icon icon="mdi:source-branch" width="14" /> {{ currentBranch }}</button>
+              <span class="info-spacer" />
+              <button class="info-icon" title="布局" @click="rightOpen = !rightOpen"><Icon icon="mdi:dock-right" width="14" /></button>
+            </div>
+            <ChatComposer
             v-model="input"
             :attachments="attachments"
             :running="chat.running"
@@ -318,6 +331,7 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
             @request-approve="handleApprove"
             @rename="handleRename"
           />
+          </div>
         </div>
       </section>
 
@@ -392,12 +406,22 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
 .waiting { display: inline-flex; align-items: center; gap: 7px; color: #64748b; font-size: 13px; }
 
 .composer-area { flex: 0 0 auto; padding: 0 16px 12px; background: #fff; }
+.composer-combined {
+  width: min(880px, 100%); margin: 0 auto; background: #fff; border: 1px solid #e6eef3; border-radius: 16px;
+  overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+}
 .composer-info-bar {
-  display: flex; align-items: center; gap: 12px; padding: 8px 12px; margin: 0 auto 6px;
-  width: min(880px, 100%); background: #f8fafc; border: 1px solid #eef2f6; border-radius: 999px;
+  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+  background: #f8fafc; border-bottom: 1px solid #eef2f6;
   font-size: 12px; color: #64748b;
 }
+.composer-area .composer { width: 100% !important; margin: 0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: #fff !important; }
 .info-item { display: inline-flex; align-items: center; gap: 6px; }
+.info-item--btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px;
+  border: 0; border-radius: 6px; background: transparent; color: #475569; font-size: 12px; cursor: pointer;
+}
+.info-item--btn:hover { background: #fff; color: #0f172a; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
 .info-spacer { flex: 1; }
 .info-icon { display: grid; place-items: center; width: 22px; height: 22px; border: 0; background: transparent; color: #94a3b8; cursor: pointer; border-radius: 4px; }
 .info-icon:hover { background: #fff; color: #334155; }

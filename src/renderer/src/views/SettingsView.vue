@@ -348,7 +348,7 @@ function handleViewLicense() {
 .section-h2 { margin: 0 0 10px; font-size: 14px; font-weight: 600; color: #0f172a; }
 .card { border: 1px solid #e6eef3; border-radius: 10px; background: #fff; overflow: hidden; }
 .card-pad { padding: 16px; }
-.card-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border-top: 1px solid #f1f5f9; }
+.card-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border-top: 1px solid #f1f5f9; min-height: 56px; }
 .card-row:first-child { border-top: 0; }
 .row-text { display: flex; flex-direction: column; gap: 4px; max-width: 560px; }
 .row-text strong { font-size: 13px; font-weight: 600; color: #0f172a; }
@@ -356,7 +356,10 @@ function handleViewLicense() {
 .row-text a { color: #2563eb; text-decoration: none; }
 .row-text a:hover { text-decoration: underline; }
 .pill-select { min-width: 132px; }
-.pill-select :deep(.el-input__wrapper) { border-radius: 999px; background: #fff; }
+.pill-select :deep(.el-input__wrapper) { border-radius: 999px; background: #fff; height: 30px; }
+.card-row :deep(.el-switch) { --el-switch-height: 20px; flex: 0 0 auto; }
+.card-row :deep(.el-button) { height: 30px; border-radius: 999px; }
+.card-row :deep(.el-button--small) { height: 28px; }
 .kbd { padding: 2px 6px; border: 1px solid #e2e8f0; border-radius: 4px; background: #f8fafc; font-size: 11px; color: #475569; }
 /* 让改版前组件与新主题融合 */
 .settings-main .card :deep(.model-settings),

@@ -174,10 +174,16 @@ function shortTitle(c: Conversation) {
 
 .sidebar-custom-entry {
   flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
-  gap: 8px; padding: 10px 12px; border-top: 1px solid #e6eef3; background: #f3f7f7;
+  gap: 8px; padding: 10px 8px; border-top: 1px solid #e6eef3; background: #f3f7f7;
 }
-.custom-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: #475569; font-size: 12px; cursor: pointer; }
-.custom-btn:hover { background: rgba(255,255,255,0.7); color: #0f172a; }
-.help-btn { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 50%; background: transparent; color: #94a3b8; cursor: pointer; }
-.help-btn:hover { background: rgba(255,255,255,0.7); color: #475569; }
+.custom-btn {
+  flex: 1; display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px;
+  border: 0; border-radius: 8px; background: #e8ecef; color: #475569; font-size: 13px; cursor: pointer;
+}
+.custom-btn:hover { background: #e2e8f0; color: #0f172a; }
+.help-btn {
+  display: grid; place-items: center; width: 26px; height: 26px; flex: 0 0 auto;
+  border: 1px solid #e2e8f0; border-radius: 50%; background: #fff; color: #94a3b8; cursor: pointer;
+}
+.help-btn:hover { background: #f8fafc; color: #475569; border-color: #cbd5e1; }
 </style>
