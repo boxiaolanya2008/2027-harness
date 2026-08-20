@@ -155,7 +155,8 @@ function reasoningLabel(v: ReasoningEffort) {
 
 .submenu {
   position: absolute;
-  left: calc(100% + 6px);
+  right: calc(100% + 6px);
+  left: auto;
   width: 118px;
   padding: 4px;
   border: 1px solid var(--glass-border);
