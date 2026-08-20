@@ -97,6 +97,20 @@ const options: Array<{
 .approval-row.active {
   background: color-mix(in srgb, var(--hover-bg) 90%, transparent);
 }
+.approval-row + .approval-row {
+  position: relative;
+  margin-top: 2px;
+}
+.approval-row + .approval-row::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 10px;
+  right: 10px;
+  height: 1px;
+  background: color-mix(in srgb, var(--glass-border) 65%, transparent);
+  pointer-events: none;
+}
 .approval-row.danger {
   position: relative;
   overflow: hidden;

@@ -166,9 +166,14 @@ function reasoningLabel(v: ReasoningEffort) {
   display: flex;
   flex-direction: column;
   gap: 1px;
+  max-height: min(280px, 60vh);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
+.submenu::-webkit-scrollbar { width: 4px; }
+.submenu::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--text-faint) 25%, transparent); border-radius: 2px; }
 .submenu--model { top: 0; }
-.submenu--reasoning { top: 32px; }
+.submenu--reasoning { bottom: 0; top: auto; }
 .submenu-row {
   display: flex;
   align-items: center;
