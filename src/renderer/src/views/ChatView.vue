@@ -208,12 +208,17 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
 
 <template>
   <div class="codex-window">
-    <!-- 顶部窗口栏（已按圈选删除右侧 Codex 版本与窗口控制，功能已下沉至底部信息栏） -->
+    <!-- 顶部窗口栏：左侧菜单，右侧为侧边栏入口（按圈选固定于右上角） -->
     <div class="window-bar">
       <div class="window-bar-left">
         <span class="win-dot" />
         <span class="win-nav"><Icon icon="mdi:arrow-left" width="14" /> <Icon icon="mdi:arrow-right" width="14" /></span>
         <span class="win-menu">文件</span><span class="win-menu">编辑</span><span class="win-menu">视图</span><span class="win-menu">帮助</span>
+      </div>
+      <div class="window-bar-right">
+        <button class="win-sidebar-entry" title="切换侧边栏" @click="rightOpen = !rightOpen">
+          <Icon icon="mdi:dock-right" width="16" />
+        </button>
       </div>
     </div>
 
@@ -301,15 +306,16 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
           />
         </nav>
 
-        <!-- 底部输入区：顶部灰条与输入卡分离，对应图片圆角细节 -->
+        <!-- 底部输入区：顶部灰条与输入卡分离，工作区信息居中 -->
         <div class="composer-area">
           <div class="composer-info-bar">
-            <button class="info-item info-item--btn" @click="handlePickWorkspace" title="点击选择工作区">
-              <Icon icon="mdi:folder-outline" width="14" /> {{ activeWorkspaceName }}
-            </button>
-            <button class="info-item info-item--btn" @click="handlePickWorkspace" title="本地工作区"><Icon icon="mdi:monitor" width="14" /> 本地</button>
-            <button class="info-item info-item--btn" @click="handleBranchClick" :title="`当前分支: ${currentBranch}，点击查看`"><Icon icon="mdi:source-branch" width="14" /> {{ currentBranch }}</button>
-            <span class="info-spacer" />
+            <div class="info-center">
+              <button class="info-item info-item--btn" @click="handlePickWorkspace" title="点击选择工作区">
+                <Icon icon="mdi:folder-outline" width="14" /> {{ activeWorkspaceName }}
+              </button>
+              <button class="info-item info-item--btn" @click="handlePickWorkspace" title="本地工作区"><Icon icon="mdi:monitor" width="14" /> 本地</button>
+              <button class="info-item info-item--btn" @click="handleBranchClick" :title="`当前分支: ${currentBranch}，点击查看`"><Icon icon="mdi:source-branch" width="14" /> {{ currentBranch }}</button>
+            </div>
             <button class="info-icon" title="布局" @click="rightOpen = !rightOpen"><Icon icon="mdi:dock-right" width="14" /></button>
           </div>
           <ChatComposer
@@ -352,7 +358,12 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
 .win-dot { width: 8px; height: 8px; border-radius: 50%; background: #e2e8f0; border: 1px solid #cbd5e1; }
 .win-nav { display: inline-flex; gap: 4px; color: #94a3b8; }
 .win-menu { color: #64748b; cursor: default; }
-.window-bar-right { display: flex; align-items: center; gap: 10px; }
+.window-bar-right { display: flex; align-items: center; gap: 8px; }
+.win-sidebar-entry {
+  display: grid; place-items: center; width: 26px; height: 22px;
+  border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; color: #64748b; cursor: pointer;
+}
+.win-sidebar-entry:hover { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; }
 .codex-version { display: inline-flex; align-items: center; gap: 6px; color: #475569; }
 .dot-green { width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block; }
 .win-ctrl { width: 28px; height: 28px; display: grid; place-items: center; cursor: default; }
@@ -405,10 +416,11 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
 
 .composer-area { flex: 0 0 auto; padding: 0 16px 12px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
 .composer-info-bar {
-  display: flex; align-items: center; gap: 8px; padding: 8px 14px; margin: 0 auto;
+  display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 14px; margin: 0 auto;
   width: min(880px, 100%); background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 999px;
-  font-size: 12px; color: #475569; box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+  font-size: 12px; color: #475569; position: relative;
 }
+.info-center { display: inline-flex; align-items: center; gap: 16px; }
 .composer-area .composer { width: min(880px, 100%) !important; margin: 0 auto !important; border-radius: 16px !important; }
 .info-item { display: inline-flex; align-items: center; gap: 6px; }
 .info-item--btn {
@@ -416,8 +428,7 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
   border: 0; border-radius: 6px; background: transparent; color: #475569; font-size: 12px; cursor: pointer;
 }
 .info-item--btn:hover { background: #fff; color: #0f172a; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
-.info-spacer { flex: 1; }
-.info-icon { display: grid; place-items: center; width: 22px; height: 22px; border: 0; background: transparent; color: #94a3b8; cursor: pointer; border-radius: 4px; }
+.info-icon { position: absolute; right: 10px; display: grid; place-items: center; width: 22px; height: 22px; border: 0; background: transparent; color: #94a3b8; cursor: pointer; border-radius: 4px; }
 .info-icon:hover { background: #fff; color: #334155; }
 .right-shell { position: relative; min-width: 0; min-height: 0; overflow: hidden; background: #f8fafc; border-left: 1px solid #e6eef3; }
 .pane-resizer { position: absolute; top: 0; right: 0; z-index: 8; width: 6px; height: 100%; cursor: col-resize; }
