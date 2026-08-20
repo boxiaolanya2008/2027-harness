@@ -209,14 +209,13 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
 
 <template>
   <div class="codex-window">
-    <!-- 顶部窗口栏 -->
+    <!-- 顶部窗口栏（拟真 Codex 顶部） -->
     <div class="window-bar">
       <div class="window-bar-left">
-        <button class="win-toggle" :class="{ collapsed: leftCollapsed }" title="展开/收起侧边栏" @click="leftCollapsed = !leftCollapsed">
-          <Icon :icon="leftCollapsed ? 'mdi:chevron-right' : 'mdi:chevron-left'" width="14" />
+        <button class="win-icon-btn" title="切换侧边栏" @click="leftCollapsed = !leftCollapsed">
+          <Icon icon="mdi:page-layout-sidebar-left" width="16" />
         </button>
-        <span class="win-dot" />
-        <span class="win-nav"><Icon icon="mdi:arrow-left" width="14" /> <Icon icon="mdi:arrow-right" width="14" /></span>
+        <span class="win-nav"><Icon icon="mdi:arrow-left" width="14" style="opacity:0.4" /> <Icon icon="mdi:arrow-right" width="14" style="opacity:0.4" /></span>
         <span class="win-menu">文件</span><span class="win-menu">编辑</span><span class="win-menu">视图</span><span class="win-menu">帮助</span>
       </div>
       <div class="window-bar-right">
@@ -354,19 +353,23 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
 .codex-window { display: flex; flex-direction: column; width: 100%; height: 100vh; min-height: 0; overflow: hidden; background: #fff; }
 .window-bar {
   height: 28px; display: flex; align-items: center; justify-content: space-between;
-  padding: 0 10px; background: #f1f5f5; border-bottom: 1px solid #e2e8f0; flex: 0 0 auto;
-  font-size: 12px; color: #475569;
+  padding: 0 8px; background: #f8fafc; border-bottom: 1px solid #f1f5f9; flex: 0 0 auto;
+  font-size: 12px; color: #a1aab4;
 }
 .window-bar-left { display: flex; align-items: center; gap: 10px; }
-.win-dot { width: 8px; height: 8px; border-radius: 50%; background: #e2e8f0; border: 1px solid #cbd5e1; }
-.win-nav { display: inline-flex; gap: 4px; color: #94a3b8; }
-.win-menu { color: #64748b; cursor: default; }
+.win-icon-btn {
+  display: grid; place-items: center; width: 26px; height: 26px;
+  border: 0; border-radius: 6px; background: transparent; color: #94a3b8; cursor: pointer;
+}
+.win-icon-btn:hover { background: #eef2f6; color: #475569; }
+.win-nav { display: inline-flex; gap: 2px; color: #cbd5e1; }
+.win-menu { color: #a1aab4; cursor: default; font-weight: 400; }
 .window-bar-right { display: flex; align-items: center; gap: 8px; }
 .win-sidebar-entry {
   display: grid; place-items: center; width: 26px; height: 22px;
-  border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; color: #64748b; cursor: pointer;
+  border: 0; border-radius: 6px; background: transparent; color: #94a3b8; cursor: pointer;
 }
-.win-sidebar-entry:hover { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; }
+.win-sidebar-entry:hover { background: #eef2f6; color: #475569; }
 .codex-version { display: inline-flex; align-items: center; gap: 6px; color: #475569; }
 .dot-green { width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block; }
 .win-ctrl { width: 28px; height: 28px; display: grid; place-items: center; cursor: default; }
