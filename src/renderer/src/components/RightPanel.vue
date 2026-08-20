@@ -161,74 +161,78 @@ async function oneClickPr() {
       </button>
     </nav>
 
-    <div v-show="tab === 'github'" class="panel-body">
-      <GitTimelinePanel v-if="chat.workspace" />
-      <EmptyState v-else title="未选择工作区" desc="在左侧打开本地目录后，这里会显示本仓库的提交。" />
-    </div>
-
-    <div v-show="tab === 'pr'" class="panel-body panel-body--list">
-      <p v-if="originFullName" class="repo-caption">{{ originFullName }}</p>
-      <template v-if="settings.hasGithubToken && github.currentRepo">
-        <SkeletonCard v-if="github.loading" :rows="3" />
-        <EmptyState v-else-if="!github.prs.length" title="没有 PR" desc="当前仓库还没有 pull request。" />
-        <div v-else class="repo-list">
-          <article v-for="pr in github.prs.slice(0, 30)" :key="pr.number" class="repo-row">
-            <div class="row-title">#{{ pr.number }} {{ pr.title }}</div>
-            <div class="row-meta">{{ pr.state }} · {{ dayjs(pr.created_at).format('MM-DD') }}</div>
-            <button class="ai-action" @click="summarize('PR', pr)"><Icon icon="mdi:robot-outline" width="14" /> AI 总结</button>
-          </article>
-        </div>
-        <div class="detail-actions"><el-button type="primary" :loading="prBusy" @click="oneClickPr"><Icon icon="mdi:source-pull" width="15" /> 一键生成并推送 PR</el-button></div>
-      </template>
-      <SkeletonCard v-else-if="github.loading || binding" :rows="3" />
-      <EmptyState v-else-if="!settings.hasGithubToken" title="未连接 GitHub" :desc="originFullName ? `已从本地 origin 检测到 ${originFullName}。到设置连接 GitHub 后即可查看 PR。` : '到设置页面配置 token 后，这里会显示当前仓库的 PR。'" />
-      <EmptyState v-else :title="originFullName ? '未能打开当前仓库' : '当前工作区不是 GitHub 仓库'" :desc="bindNote || '会读取本仓库 origin，不再手动选择。'" />
-    </div>
-
-    <div v-show="tab === 'issue'" class="panel-body panel-body--list">
-      <p v-if="originFullName" class="repo-caption">{{ originFullName }}</p>
-      <template v-if="settings.hasGithubToken && github.currentRepo">
-        <SkeletonCard v-if="github.loading" :rows="3" />
-        <EmptyState v-else-if="!github.issues.length" title="没有 Issue" desc="当前仓库还没有 issue。" />
-        <div v-else class="repo-list">
-          <article v-for="issue in github.issues.slice(0, 30)" :key="issue.number" class="repo-row">
-            <div class="row-title">#{{ issue.number }} {{ issue.title }}</div>
-            <div class="row-meta">{{ issue.state }} · {{ dayjs(issue.created_at).format('MM-DD') }}</div>
-            <button class="ai-action" @click="summarize('Issue', issue)"><Icon icon="mdi:robot-outline" width="14" /> AI 总结</button>
-          </article>
-        </div>
-      </template>
-      <SkeletonCard v-else-if="github.loading || binding" :rows="3" />
-      <EmptyState v-else-if="!settings.hasGithubToken" title="未连接 GitHub" :desc="originFullName ? `已从本地 origin 检测到 ${originFullName}。到设置连接 GitHub 后即可查看 Issue。` : '到设置页面配置 token 后，这里会显示当前仓库的 Issue。'" />
-      <EmptyState v-else :title="originFullName ? '未能打开当前仓库' : '当前工作区不是 GitHub 仓库'" :desc="bindNote || '会读取本仓库 origin，不再手动选择。'" />
-    </div>
-    <div v-show="tab === 'changes'" class="panel-body panel-body--changes">
-      <SessionChangesPanel />
-    </div>
+    <Transition name="panel-fade" mode="out-in">
+      <div v-if="tab === 'github'" key="github" class="panel-body">
+        <GitTimelinePanel v-if="chat.workspace" />
+        <EmptyState v-else title="未选择工作区" desc="在左侧打开本地目录后，这里会显示本仓库的提交。" />
+      </div>
+      <div v-else-if="tab === 'pr'" key="pr" class="panel-body panel-body--list">
+        <p v-if="originFullName" class="repo-caption">{{ originFullName }}</p>
+        <template v-if="settings.hasGithubToken && github.currentRepo">
+          <SkeletonCard v-if="github.loading" :rows="3" />
+          <EmptyState v-else-if="!github.prs.length" title="没有 PR" desc="当前仓库还没有 pull request。" />
+          <div v-else class="repo-list">
+            <article v-for="pr in github.prs.slice(0, 30)" :key="pr.number" class="repo-row">
+              <div class="row-title">#{{ pr.number }} {{ pr.title }}</div>
+              <div class="row-meta">{{ pr.state }} · {{ dayjs(pr.created_at).format('MM-DD') }}</div>
+              <button class="ai-action" @click="summarize('PR', pr)"><Icon icon="mdi:robot-outline" width="14" /> AI 总结</button>
+            </article>
+          </div>
+          <div class="detail-actions"><el-button type="primary" :loading="prBusy" @click="oneClickPr"><Icon icon="mdi:source-pull" width="15" /> 一键生成并推送 PR</el-button></div>
+        </template>
+        <SkeletonCard v-else-if="github.loading || binding" :rows="3" />
+        <EmptyState v-else-if="!settings.hasGithubToken" title="未连接 GitHub" :desc="originFullName ? `已从本地 origin 检测到 ${originFullName}。到设置连接 GitHub 后即可查看 PR。` : '到设置页面配置 token 后，这里会显示当前仓库的 PR。'" />
+        <EmptyState v-else :title="originFullName ? '未能打开当前仓库' : '当前工作区不是 GitHub 仓库'" :desc="bindNote || '会读取本仓库 origin，不再手动选择。'" />
+      </div>
+      <div v-else-if="tab === 'issue'" key="issue" class="panel-body panel-body--list">
+        <p v-if="originFullName" class="repo-caption">{{ originFullName }}</p>
+        <template v-if="settings.hasGithubToken && github.currentRepo">
+          <SkeletonCard v-if="github.loading" :rows="3" />
+          <EmptyState v-else-if="!github.issues.length" title="没有 Issue" desc="当前仓库还没有 issue。" />
+          <div v-else class="repo-list">
+            <article v-for="issue in github.issues.slice(0, 30)" :key="issue.number" class="repo-row">
+              <div class="row-title">#{{ issue.number }} {{ issue.title }}</div>
+              <div class="row-meta">{{ issue.state }} · {{ dayjs(issue.created_at).format('MM-DD') }}</div>
+              <button class="ai-action" @click="summarize('Issue', issue)"><Icon icon="mdi:robot-outline" width="14" /> AI 总结</button>
+            </article>
+          </div>
+        </template>
+        <SkeletonCard v-else-if="github.loading || binding" :rows="3" />
+        <EmptyState v-else-if="!settings.hasGithubToken" title="未连接 GitHub" :desc="originFullName ? `已从本地 origin 检测到 ${originFullName}。到设置连接 GitHub 后即可查看 Issue。` : '到设置页面配置 token 后，这里会显示当前仓库的 Issue。'" />
+        <EmptyState v-else :title="originFullName ? '未能打开当前仓库' : '当前工作区不是 GitHub 仓库'" :desc="bindNote || '会读取本仓库 origin，不再手动选择。'" />
+      </div>
+      <div v-else key="changes" class="panel-body panel-body--changes">
+        <SessionChangesPanel />
+      </div>
+    </Transition>
   </aside>
 </template>
 
 <style scoped>
-.details-panel { height: 100%; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: var(--panel-bg); border-left: 1px solid var(--glass-border); }
-.details-head { height: var(--topbar-height); flex: 0 0 var(--topbar-height); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--glass-border); background: var(--panel-bg); }
+.details-panel { height: 100%; min-width: 0; min-height: 0; display: flex; flex-direction: column; overflow: hidden; background: color-mix(in srgb, var(--panel-bg) 96%, transparent); backdrop-filter: blur(10px); border-left: 1px solid var(--glass-border); }
+.details-head { height: var(--topbar-height); flex: 0 0 var(--topbar-height); display: flex; align-items: center; justify-content: space-between; padding: 0 12px; border-bottom: 1px solid var(--glass-border); background: color-mix(in srgb, var(--panel-bg) 90%, transparent); backdrop-filter: blur(8px); }
 .details-head h2 { margin: 0; font-size: 13px; font-weight: 600; }
 .details-head span { color: var(--text-secondary); font-size: 12px; }
-.view-nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); flex: 0 0 auto; border-bottom: 1px solid var(--glass-border); background: var(--panel-bg); }
-.view-nav button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 34px; padding: 0 4px; border: 0; border-bottom: 2px solid transparent; color: var(--text-secondary); background: transparent; cursor: pointer; font-size: 11px; }
-.view-nav button:hover { color: var(--text-primary); background: var(--hover-bg); }
-.view-nav button.active { border-bottom-color: var(--accent); color: var(--accent); }
-.view-nav svg { flex: 0 0 auto; }
+.view-nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); flex: 0 0 auto; border-bottom: 1px solid var(--glass-border); background: color-mix(in srgb, var(--panel-bg) 96%, transparent); backdrop-filter: blur(6px); }
+.view-nav button { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 34px; padding: 0 4px; border: 0; border-bottom: 2px solid transparent; color: var(--text-secondary); background: transparent; cursor: pointer; font-size: 11px; transition: all 0.2s ease; }
+.view-nav button:hover { color: var(--text-primary); background: color-mix(in srgb, var(--hover-bg) 70%, transparent); }
+.view-nav button.active { border-bottom-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--selected-bg) 60%, transparent); }
 .panel-body { display: flex; flex: 1 1 auto; min-height: 0; min-width: 0; flex-direction: column; overflow: hidden; }
 .panel-body--changes, .panel-body--list { min-height: 0; overflow: hidden; }
 .panel-body--changes :deep(.changes-panel), .panel-body--changes :deep(.change-list) { flex: 1 1 auto; min-height: 0; overscroll-behavior: contain; }
 .repo-caption { flex: 0 0 auto; margin: 0; padding: var(--space-3) var(--space-4) var(--space-2); color: var(--text-secondary); font-size: 12px; }
 .repo-list { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 0 var(--space-4); }
-.repo-row { padding: var(--space-3) var(--space-1); border-bottom: 1px solid var(--glass-border); }
-.repo-row:hover { background: var(--hover-bg); }
+.repo-row { padding: var(--space-3) var(--space-3); margin: 6px 0; border: 1px solid transparent; border-radius: 8px; background: transparent; transition: all 0.18s ease; border-bottom: 1px solid var(--glass-border); }
+.repo-row:hover { background: #fff; border-color: var(--glass-border); box-shadow: 0 1px 6px rgba(0,0,0,0.04); transform: translateY(-1px); }
 .row-title { color: var(--text-primary); font-size: 13px; line-height: 1.45; }
 .row-meta { margin-top: var(--space-1); color: var(--text-faint); font-size: 11px; }
-.ai-action { display: inline-flex; align-items: center; gap: 5px; margin-top: var(--space-2); padding: 0; border: 0; color: var(--accent); background: transparent; cursor: pointer; font-size: 12px; }
-.ai-action:hover { opacity: 0.82; }
-.detail-actions { flex: 0 0 auto; padding: var(--space-3) var(--space-4); border-top: 1px solid var(--glass-border); }
-.detail-actions :deep(.el-button) { width: 100%; }
+.ai-action { display: inline-flex; align-items: center; gap: 5px; margin-top: var(--space-2); padding: 4px 8px; border: 0; border-radius: 6px; color: var(--accent); background: transparent; cursor: pointer; font-size: 12px; transition: all 0.15s ease; }
+.ai-action:hover { background: var(--selected-bg); opacity: 1; }
+.detail-actions { flex: 0 0 auto; padding: var(--space-3) var(--space-4); border-top: 1px solid var(--glass-border); background: color-mix(in srgb, var(--panel-bg) 80%, transparent); }
+.detail-actions :deep(.el-button) { width: 100%; border-radius: 8px; }
+
+.panel-fade-enter-active { transition: all 0.24s cubic-bezier(0.32,0.72,0,1); }
+.panel-fade-leave-active { transition: all 0.16s ease; }
+.panel-fade-enter-from { opacity: 0; transform: translateY(6px); }
+.panel-fade-leave-to { opacity: 0; transform: translateY(-4px); }
 </style>

@@ -130,7 +130,7 @@ function handleViewLicense() {
       <button class="collapse-btn" :class="{ collapsed: sidebarCollapsed }" title="收起侧边栏" @click="sidebarCollapsed = !sidebarCollapsed">
         <Icon :icon="sidebarCollapsed ? 'mdi:chevron-right' : 'mdi:chevron-left'" width="16" />
       </button>
-      <button class="back-btn" @click="router.push('/')"><Icon icon="mdi:arrow-left" width="16" /> 返回应用</button>
+      <button class="back-btn" title="返回上一页" @click="router.back()"><Icon icon="mdi:chevron-left" width="18" /></button>
       <div class="search-wrap">
         <Icon icon="mdi:magnify" width="16" class="search-icon" />
         <input v-model="search" placeholder="搜索设置..." />
@@ -354,8 +354,11 @@ function handleViewLicense() {
 }
 .collapse-btn:hover { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; }
 .collapse-btn.collapsed { transform: rotate(180deg); }
-.back-btn { display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent; color: #4a6572; cursor: pointer; font-size: 13px; }
-.back-btn:hover { color: #1a1a1a; }
+.back-btn {
+  display: grid; place-items: center; width: 28px; height: 28px; border: 1px solid #e2e8f0; border-radius: 6px;
+  background: #fff; color: #64748b; cursor: pointer; transition: all 0.2s ease;
+}
+.back-btn:hover { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; }
 .search-wrap { position: relative; width: 220px; display: flex; align-items: center; transition: width 0.2s ease; }
 .search-wrap input { width: 100%; height: 30px; padding: 0 12px 0 30px; border: 1px solid #e2e8f0; border-radius: 999px; background: #fff; outline: none; font-size: 13px; transition: border-color 0.2s, box-shadow 0.2s; }
 .search-wrap input:focus { border-color: #93c5fd; box-shadow: 0 0 0 3px rgba(147,197,253,0.2); }
