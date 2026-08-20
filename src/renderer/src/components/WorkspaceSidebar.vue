@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
 import { useChatStore } from '@/stores/chat'
 import type { Conversation, Project } from '@/types'
 
+const router = useRouter()
 const chat = useChatStore()
 const workspaceName = computed(() => chat.workspace?.split(/[\\/]/).filter(Boolean).pop() || '选择工作区')
 const sortedConversations = computed(() => [...chat.conversations].sort((left, right) => {
@@ -120,6 +122,17 @@ function formatConversationTime(conversation: Conversation) {
         <EmptyState v-if="!sortedConversations.length && !activeProjects.length && chat.hydrated" title="还没有项目或任务" desc="选择本地目录即可创建项目。" />
       </div>
     </section>
+
+    <!-- 设置入口（图二圈选处） -->
+    <footer class="sidebar-custom-entry">
+      <button type="button" class="custom-btn" @click="router.push('/settings')">
+        <Icon icon="mdi:cog-outline" width="16" />
+        <span>custom</span>
+      </button>
+      <button type="button" class="help-btn" title="帮助">
+        <Icon icon="mdi:help-circle-outline" width="16" />
+      </button>
+    </footer>
   </section>
 </template>
 
@@ -208,6 +221,41 @@ function formatConversationTime(conversation: Conversation) {
 .delete-action { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 5px; opacity: 0; }
 .conversation-row:hover .delete-action, .conversation-row:focus-visible .delete-action { opacity: 1; }
 .delete-action:hover { color: var(--danger, #d9534f); background: var(--selected-bg); }
+.sidebar-custom-entry {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--glass-border);
+  background: var(--panel-bg);
+}
+.custom-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+}
+.custom-btn:hover { background: var(--hover-bg); color: var(--text-primary); }
+.help-btn {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-faint);
+  cursor: pointer;
+}
+.help-btn:hover { background: var(--hover-bg); color: var(--text-secondary); }
 .sidebar-footer { flex: 0 0 auto; padding: var(--space-3) var(--space-3) var(--space-4); border-top: 1px solid var(--glass-border); background: var(--panel-bg); }
 .new-task { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 9px 12px; border: 1px solid var(--accent); border-radius: var(--radius-sm); color: var(--accent-contrast, #fff); background: var(--accent); cursor: pointer; font-size: 13px; font-weight: 600; }
 .new-task:hover { filter: brightness(0.96); }
