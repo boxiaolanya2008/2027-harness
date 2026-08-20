@@ -19,14 +19,11 @@ const emit = defineEmits<{
 
 const activeSub = ref<'model' | 'reasoning' | null>(null)
 
-function enterModel() {
-  activeSub.value = 'model'
+function toggleModel() {
+  activeSub.value = activeSub.value === 'model' ? null : 'model'
 }
-function enterReasoning() {
-  activeSub.value = 'reasoning'
-}
-function leaveSub() {
-  // keep submenu open when hovering over submenu itself; handled via wrapper hover
+function toggleReasoning() {
+  activeSub.value = activeSub.value === 'reasoning' ? null : 'reasoning'
 }
 
 const reasoningOptions: Array<{ value: ReasoningEffort; label: string }> = [
@@ -52,17 +49,17 @@ function reasoningLabel(v: ReasoningEffort) {
 </script>
 
 <template>
-  <div class="popover-root" @mouseleave="activeSub = null">
+  <div class="popover-root">
     <div class="model-popover">
-      <button type="button" class="model-row" :class="{ active: activeSub === 'model' }" @mouseenter="enterModel" @click="enterModel">
+      <button type="button" class="model-row" :class="{ active: activeSub === 'model' }" @click="toggleModel">
         <span class="row-label">模型</span>
         <span class="row-value" :title="model">{{ model }}</span>
-        <Icon icon="mdi:chevron-right" width="18" class="row-arrow" />
+        <Icon icon="mdi:chevron-right" width="16" class="row-arrow" />
       </button>
-      <button type="button" class="model-row" :class="{ active: activeSub === 'reasoning' }" @mouseenter="enterReasoning" @click="enterReasoning">
+      <button type="button" class="model-row" :class="{ active: activeSub === 'reasoning' }" @click="toggleReasoning">
         <span class="row-label">推理强度</span>
         <span class="row-value row-value--center" :title="reasoningLabel(reasoning)">{{ reasoningLabel(reasoning) }}</span>
-        <Icon icon="mdi:chevron-right" width="18" class="row-arrow" />
+        <Icon icon="mdi:chevron-right" width="16" class="row-arrow" />
       </button>
     </div>
 
@@ -106,28 +103,28 @@ function reasoningLabel(v: ReasoningEffort) {
   bottom: calc(100% + 8px);
   z-index: 18;
   display: flex;
-  gap: 8px;
+  gap: 6px;
   align-items: flex-start;
 }
 .model-popover {
-  width: 280px;
-  padding: 6px;
+  width: 230px;
+  padding: 4px;
   border: 1px solid var(--glass-border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--surface-bg);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 .model-row {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
-  padding: 10px 10px;
+  padding: 7px 8px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   background: transparent;
   text-align: left;
   cursor: pointer;
@@ -137,55 +134,55 @@ function reasoningLabel(v: ReasoningEffort) {
   background: var(--hover-bg);
 }
 .row-label {
-  flex: 0 0 64px;
-  font-size: 13px;
+  flex: 0 0 56px;
+  font-size: 12px;
   color: var(--text-primary);
   font-weight: 500;
 }
 .row-value {
   flex: 1;
   min-width: 0;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   text-align: right;
 }
-.row-value--center { text-align: center; }
+.row-value--center { text-align: center; color: var(--text-faint); }
 .row-arrow {
   flex: 0 0 auto;
   color: var(--text-faint);
 }
 
 .submenu {
-  width: 160px;
-  padding: 6px;
+  width: 118px;
+  padding: 4px;
   border: 1px solid var(--glass-border);
-  border-radius: 12px;
+  border-radius: 10px;
   background: var(--surface-bg);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 .submenu-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 6px 8px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 7px;
   background: transparent;
   text-align: left;
   cursor: pointer;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--text-primary);
 }
 .submenu-row:hover { background: var(--hover-bg); }
-.submenu-row.active { background: var(--hover-bg); }
+.submenu-row.active { background: var(--selected-bg); }
 .submenu-text {
   flex: 1;
   min-width: 0;
@@ -193,11 +190,11 @@ function reasoningLabel(v: ReasoningEffort) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.submenu-check { flex: 0 0 auto; color: var(--text-primary); }
+.submenu-check { flex: 0 0 auto; color: var(--accent); }
 .submenu-empty {
-  padding: 10px;
+  padding: 8px;
   text-align: center;
   color: var(--text-faint);
-  font-size: 12px;
+  font-size: 11px;
 }
 </style>
