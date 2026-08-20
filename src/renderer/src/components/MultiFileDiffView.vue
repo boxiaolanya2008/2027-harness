@@ -42,7 +42,7 @@ function fileRows(f: DiffFileBrief) {
   if (f.content) {
     return makeDiffRows('', f.content)
   }
-  return [] as ReturnType<typeof makeDiffRows>[]
+  return [] as ReturnType<typeof makeDiffRows>
 }
 </script>
 
