@@ -1,8 +1,72 @@
 import { streamTurn, type ChatMsg, type ProviderToolCall, type ChatContentPart, type RequestConfig } from './openai'
 import { TOOLS, SYSTEM, execTool } from './agent-tools'
-import type { AssistantTurnEvent, AssistantTurnEventInput, FileEditPreview, Settings, StreamState } from '@/types'
+import type { ApprovalMode, AssistantTurnEvent, AssistantTurnEventInput, FileEditPreview, Settings, StreamState } from '@/types'
 import { assessShellCommand } from '@/utils/shellSafety'
 import { formatBlockedMessage, formatDeniedMessage, guardShellCommand } from '@/utils/shellGuard'
+import { ElMessageBox } from 'element-plus'
+import { useSettingsStore } from '@/stores/settings'
+
+function getApprovalMode(): ApprovalMode {
+  try {
+    const store = useSettingsStore()
+    const m = store.settings.approvalMode
+    if (m === 'request' || m === 'help' || m === 'full') return m as ApprovalMode
+  } catch {}
+  try {
+    const settingsRaw = localStorage.getItem('super-agent-settings')
+    if (settingsRaw) {
+      const raw = JSON.parse(settingsRaw) as Record<string, unknown>
+      const m = raw.approvalMode
+      if (m === 'request' || m === 'help' || m === 'full') return m as ApprovalMode
+    }
+  } catch {}
+  return 'help'
+}
+
+function isWriteTool(name: string) {
+  return name === 'write_file' || name === 'incrementally_edit'
+}
+
+async function requestToolApproval(toolName: string, toolArgs: Record<string, unknown>): Promise<boolean> {
+  const mode = getApprovalMode()
+  if (mode === 'full') return true
+  // help 模式：仅写入文件自动批准，其余均需确认（符合用户所述“自动批准只批准写入文件相关的”）
+  // request 模式：所有工具均需确认
+  if (mode === 'help' && isWriteTool(toolName)) return true
+
+  const summary = (() => {
+    const a = toolArgs as Record<string, unknown>
+    if (toolName === 'read_file') return `读取文件: ${String(a.path || '')}`
+    if (toolName === 'write_file') return `写入文件: ${String(a.path || '')}`
+    if (toolName === 'incrementally_edit') return `编辑文件: ${String(a.path || '')}`
+    if (toolName === 'run_command') return `执行命令: ${String(a.command || '').slice(0, 300)}`
+    if (toolName === 'list_dir') return `列目录: ${String(a.path || '.')}`
+    if (toolName === 'git_status') return 'git status'
+    if (toolName === 'git_diff') return 'git diff'
+    if (toolName === 'git_commit') return `git commit: ${String(a.message || '').slice(0, 120)}`
+    if (toolName === 'git_new_branch') return `新建分支: ${String(a.branch || '')}`
+    if (toolName === 'git_push') return `推送分支: ${String(a.branch || '')}`
+    return `${toolName} ${JSON.stringify(a).slice(0, 300)}`
+  })()
+
+  const title = mode === 'request' ? '请求批准 - 工具调用' : '帮我批准 - 确认工具调用'
+  try {
+    await ElMessageBox.confirm(
+      `${summary}\n\n是否允许运行此工具？`,
+      title,
+      {
+        confirmButtonText: '允许',
+        cancelButtonText: '拒绝',
+        type: mode === 'request' ? 'warning' : 'info',
+        showClose: true,
+        distinguishCancelAndClose: true
+      }
+    )
+    return true
+  } catch {
+    return false
+  }
+}
 
 // The agent consumes and emits the same ordered turn event protocol as the provider stream.
 export type AgentEvent = AssistantTurnEvent
@@ -261,7 +325,11 @@ export async function runAgent(
         if (fileEditPreview) emit({ ...call, fileEditPreview })
       }
       if (aborted(signal)) return completeInterruptedBatch('aborted', 'Agent 已取消，工具未执行')
-      if (name === 'run_command' && call.args && typeof (call.args as Record<string, unknown>).command === 'string') {
+
+      const approvalMode = getApprovalMode()
+
+      // Critical shell commands are always blocked unless user selected "完全访问" (full)
+      if (approvalMode !== 'full' && name === 'run_command' && call.args && typeof (call.args as Record<string, unknown>).command === 'string') {
         const command = String((call.args as Record<string, unknown>).command || '')
         const quickAssessment = assessShellCommand(command)
         if (quickAssessment?.level === 'critical') {
@@ -270,7 +338,30 @@ export async function runAgent(
           toolMessages.push({ role: 'tool', tool_call_id: protocolCallId, name, content: `错误: ${reason}` })
           return completeInterruptedBatch('failed', reason)
         }
-        if (quickAssessment) {
+      }
+
+      // Codex-style approval: 请求批准=所有工具, 帮我批准=仅写入自动, 完全访问=全部自动
+      if (approvalMode !== 'full') {
+        const needsApproval = approvalMode === 'request' ? true : !isWriteTool(name)
+        if (needsApproval) {
+          const approved = await requestToolApproval(name, (call.args as Record<string, unknown>) || {})
+          if (!approved) {
+            const reason = `用户拒绝运行工具 ${name || 'unknown_tool'}`
+            emit({ type: 'tool_result', callId: call.callId, providerCallId: call.providerCallId, name, status: 'failed', content: `错误: ${reason}`, error: reason })
+            toolMessages.push({ role: 'tool', tool_call_id: protocolCallId, name, content: `错误: ${reason}` })
+            return completeInterruptedBatch('failed', reason)
+          }
+        }
+      }
+
+      // Risky shell guard: only when not already approved via generic approval (to avoid double prompt)
+      // For "help" writes auto case and "full" bypass, this is the only risky check.
+      if (approvalMode !== 'full' && name === 'run_command' && call.args && typeof (call.args as Record<string, unknown>).command === 'string') {
+        const command = String((call.args as Record<string, unknown>).command || '')
+        const quickAssessment = assessShellCommand(command)
+        // If we already prompted via generic approval for this run_command (needsApproval true), skip duplicate guard
+        const alreadyPrompted = approvalMode === 'request' || (approvalMode === 'help' && !isWriteTool(name))
+        if (quickAssessment && !alreadyPrompted) {
           const guard = await guardShellCommand(command)
           if (guard.decision !== 'allow') {
             const isBlocked = guard.decision === 'blocked'

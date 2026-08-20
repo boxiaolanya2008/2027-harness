@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { ComposerMode, ModeModelPreset, ReasoningEffort, RequestCapabilities, Settings } from '@/types'
+import type { ApprovalMode, ComposerMode, ModeModelPreset, ReasoningEffort, RequestCapabilities, Settings } from '@/types'
 
 const STORAGE_KEY = 'super-agent-settings'
 
@@ -30,6 +30,11 @@ function normalizeCapabilities(value: unknown): RequestCapabilities {
   }
 }
 
+function normalizeApprovalMode(value: unknown): ApprovalMode | undefined {
+  if (value === 'request' || value === 'help' || value === 'full') return value
+  return undefined
+}
+
 function load(): Settings {
   try {
     const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}') as Record<string, unknown>
@@ -43,7 +48,8 @@ function load(): Settings {
         thinking: normalizePreset(modePresets.thinking),
         security: normalizePreset(modePresets.security)
       },
-      requestCapabilities: normalizeCapabilities(raw.requestCapabilities)
+      requestCapabilities: normalizeCapabilities(raw.requestCapabilities),
+      approvalMode: normalizeApprovalMode(raw.approvalMode)
     }
   } catch {
     return {} as Settings
@@ -63,7 +69,8 @@ export const useSettingsStore = defineStore('settings', () => {
       thinking: { model: fallbackModel || undefined, temperature: 0.4, reasoningEffort: 'high', ...savedPresets.thinking },
       security: { model: fallbackModel || undefined, temperature: 0.3, reasoningEffort: 'high', ...savedPresets.security }
     },
-    requestCapabilities: { temperature: true, reasoningEffort: true, ...saved.requestCapabilities }
+    requestCapabilities: { temperature: true, reasoningEffort: true, ...saved.requestCapabilities },
+    approvalMode: saved.approvalMode || 'help'
   })
   const hasAiKey = ref(false)
   const hasGithubToken = ref(false)
@@ -102,8 +109,14 @@ export const useSettingsStore = defineStore('settings', () => {
       model: settings.value.model,
       models: settings.value.models || [],
       modePresets: settings.value.modePresets || {},
-      requestCapabilities: settings.value.requestCapabilities || {}
+      requestCapabilities: settings.value.requestCapabilities || {},
+      approvalMode: settings.value.approvalMode || 'help'
     }))
+  }
+
+  function setApprovalMode(mode: ApprovalMode) {
+    settings.value.approvalMode = mode
+    persist()
   }
 
   function presetFor(mode: ComposerMode): ModeModelPreset {
@@ -137,6 +150,7 @@ export const useSettingsStore = defineStore('settings', () => {
     setAiKey,
     setGithubToken,
     presetFor,
+    setApprovalMode,
     configured
   }
 })

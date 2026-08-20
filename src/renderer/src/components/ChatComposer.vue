@@ -5,6 +5,7 @@ import { useSettingsStore } from '@/stores/settings'
 import type { ComposerAddAction, ComposerAttachment, ComposerMode, ComposerPluginItem, ReasoningEffort } from '@/types'
 import SkillAutocomplete from '@/components/SkillAutocomplete.vue'
 import ComposerAddMenu from '@/components/ComposerAddMenu.vue'
+import ApprovalMenu from '@/components/ApprovalMenu.vue'
 import { useSkills } from '@/api/skills'
 import { activeAtMention, isSlashTrigger } from '@/utils/skillParser'
 
@@ -66,8 +67,30 @@ const selectedModel = computed({
 const mode = ref<ComposerMode>('coding')
 const canSubmit = computed(() => !!value.value.trim() && !props.running)
 const showAddMenu = ref(false)
+const showApprovalMenu = ref(false)
 const composerRoot = ref<HTMLElement | null>(null)
 const inputRef = ref<any>(null)
+
+// Codex-style approval mode, persisted via settings store
+const approvalMode = computed(() => (settings.settings.approvalMode as import('@/types').ApprovalMode) || 'help')
+const approvalLabel = computed(() => {
+  if (approvalMode.value === 'request') return '请求批准'
+  if (approvalMode.value === 'full') return '完全访问'
+  return '帮我批准'
+})
+const approvalIcon = computed(() => {
+  if (approvalMode.value === 'request') return 'mdi:hand-back-right-outline'
+  if (approvalMode.value === 'full') return 'mdi:alert-circle-outline'
+  return 'mdi:shield-check-outline'
+})
+function setApprovalMode(v: import('@/types').ApprovalMode) {
+  settings.setApprovalMode(v)
+  showApprovalMenu.value = false
+}
+function toggleApprovalMenu() {
+  showApprovalMenu.value = !showApprovalMenu.value
+  if (showApprovalMenu.value) showAddMenu.value = false
+}
 
 type ActiveTrigger = { kind: 'slash'; query: string; start: number; end: number } | { kind: 'at'; query: string; start: number; end: number }
 const activeTrigger = ref<ActiveTrigger | null>(null)
@@ -132,7 +155,10 @@ const emptyText = computed(() => {
 
 function toggleAddMenu() {
   showAddMenu.value = !showAddMenu.value
-  if (showAddMenu.value) activeTrigger.value = null
+  if (showAddMenu.value) {
+    activeTrigger.value = null
+    showApprovalMenu.value = false
+  }
 }
 
 function handleAddAction(key: string) {
@@ -149,6 +175,11 @@ function onClickOutside(event: MouseEvent) {
   const target = event.target as HTMLElement
   if (composerRoot.value && !composerRoot.value.contains(target)) {
     showAddMenu.value = false
+    showApprovalMenu.value = false
+  } else {
+    const insideApproval = target.closest('.approval-menu')
+    const isApprovalBtn = target.closest('.approve-btn')
+    if (showApprovalMenu.value && !insideApproval && !isApprovalBtn) showApprovalMenu.value = false
   }
 }
 
@@ -172,9 +203,10 @@ function selectSkill(name: string) {
 }
 
 function onKeydown(event: KeyboardEvent) {
-  if (showAddMenu.value && event.key === 'Escape') {
+  if ((showAddMenu.value || showApprovalMenu.value) && event.key === 'Escape') {
     event.preventDefault()
     showAddMenu.value = false
+    showApprovalMenu.value = false
     return
   }
   if (showAutocomplete.value && filteredSkills.value.length) {
@@ -215,6 +247,7 @@ function onKeydown(event: KeyboardEvent) {
 
 function onInput() {
   if (showAddMenu.value) showAddMenu.value = false
+  if (showApprovalMenu.value) showApprovalMenu.value = false
   nextTick(updateTrigger)
 }
 
@@ -343,10 +376,23 @@ function submit() {
         <button class="plus-btn" type="button" :class="{ active: showAddMenu }" title="添加" @click.stop="toggleAddMenu">
           <Icon icon="mdi:plus" width="18" />
         </button>
-        <button class="approve-btn" type="button" @click="emit('requestApprove')">
-          <Icon icon="mdi:shield-check-outline" width="16" />
-          <span>帮我批准</span>
-        </button>
+        <div class="approve-wrap">
+          <button
+            class="approve-btn"
+            type="button"
+            :class="{ 'approve-btn--full': approvalMode === 'full', 'approve-btn--request': approvalMode === 'request' }"
+            :title="approvalMode === 'full' ? '完全访问：所有工具自动执行' : approvalMode === 'request' ? '请求批准：所有工具均需确认' : '帮我批准：仅风险操作需确认'"
+            @click.stop="toggleApprovalMenu"
+          >
+            <Icon :icon="approvalIcon" width="16" />
+            <span>{{ approvalLabel }}</span>
+          </button>
+          <ApprovalMenu
+            v-if="showApprovalMenu"
+            :model-value="approvalMode"
+            @update:model-value="setApprovalMode"
+          />
+        </div>
         <span class="workspace-meta--new" :title="workspaceName"><Icon icon="mdi:folder-open-outline" width="14" /> {{ workspaceName }}</span>
         <el-select v-model="mode" class="mode-select mode-select--compact" size="small">
           <el-option value="coding" label="编码" />
@@ -478,6 +524,19 @@ function submit() {
   cursor: pointer;
 }
 .approve-btn:hover { background: var(--hover-bg); color: var(--text-primary); }
+.approve-wrap { position: relative; display: inline-flex; }
+.approve-btn--full {
+  color: #e65100;
+  border-color: rgba(230, 81, 0, 0.3);
+  background: rgba(230, 81, 0, 0.08);
+}
+.approve-btn--full:hover {
+  background: rgba(230, 81, 0, 0.12);
+  color: #bf360c;
+}
+.approve-btn--request {
+  color: var(--text-primary);
+}
 
 .workspace-meta--new {
   display: inline-flex;

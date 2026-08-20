@@ -1,5 +1,6 @@
 export type ComposerMode = 'coding' | 'thinking' | 'security'
 export type ReasoningEffort = 'low' | 'medium' | 'high'
+export type ApprovalMode = 'request' | 'help' | 'full'
 
 export interface ModeModelPreset {
   model?: string
@@ -27,6 +28,7 @@ export interface Settings {
   models?: string[]
   modePresets?: Partial<Record<ComposerMode, ModeModelPreset>>
   requestCapabilities?: RequestCapabilities
+  approvalMode?: ApprovalMode
 }
 
 export type Role = 'user' | 'assistant'
