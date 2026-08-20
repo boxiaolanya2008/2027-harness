@@ -63,6 +63,12 @@ const composerMode = ref<ComposerMode>('coding')
 // Add-menu & slash panel are layout-only: parent supplies structure, no example data hard-coded.
 const composerAddActions = ref<ComposerAddAction[]>([])
 const composerPlugins = ref<ComposerPluginItem[]>([])
+
+const activeConversation = computed(() => chat.current())
+const activeWorkspaceName = computed(() => chat.workspace?.split(/[\\/]/).filter(Boolean).pop() || '')
+const currentBranch = ref('')
+const activeMessageId = ref<string | null>(null)
+
 // Diff stack: derive from real preview data if available, otherwise from workspace change-journal (no hard-coded examples)
 // This fixes the screenshot bug where header showed +0 -0 or path mismatched body.
 const workspaceDiffs = ref<DiffFileBrief[]>([])
@@ -107,11 +113,6 @@ const diffFiles = computed<DiffFileBrief[]>(() => {
   // Preview takes precedence (live tool result), fallback to workspace journal
   return previewDiffs.value.length ? previewDiffs.value : workspaceDiffs.value
 })
-
-const activeConversation = computed(() => chat.current())
-const activeWorkspaceName = computed(() => chat.workspace?.split(/[\\/]/).filter(Boolean).pop() || '')
-const currentBranch = ref('')
-const activeMessageId = ref<string | null>(null)
 
 const navigableMessages = computed(() => activeConversation.value?.messages || [])
 
