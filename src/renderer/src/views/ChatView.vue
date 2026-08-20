@@ -414,13 +414,13 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
 .assistant-message { width: min(820px, 100%); min-width: 0; color: #0f172a; line-height: 1.6; }
 .waiting { display: inline-flex; align-items: center; gap: 7px; color: #64748b; font-size: 13px; }
 
-.composer-area { flex: 0 0 auto; padding: 0 16px 12px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
+.composer-area { flex: 0 0 auto; padding: 0 16px 12px; background: #fff; display: flex; flex-direction: column; gap: 8px; align-items: center; }
 .composer-info-bar {
-  display: flex; align-items: center; justify-content: center; gap: 8px; padding: 8px 14px; margin: 0 auto;
-  width: min(880px, 100%); background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 999px;
-  font-size: 12px; color: #475569; position: relative;
+  display: inline-flex; align-items: center; gap: 10px; padding: 6px 14px; margin: 0 auto;
+  width: auto; max-width: 90%; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 999px;
+  font-size: 12px; color: #475569; position: relative; white-space: nowrap;
 }
-.info-center { display: inline-flex; align-items: center; gap: 16px; }
+.info-center { display: inline-flex; align-items: center; gap: 14px; }
 .composer-area .composer { width: min(880px, 100%) !important; margin: 0 auto !important; border-radius: 16px !important; }
 .info-item { display: inline-flex; align-items: center; gap: 6px; }
 .info-item--btn {

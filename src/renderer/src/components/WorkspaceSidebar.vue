@@ -107,13 +107,6 @@ function shortTitle(c: Conversation) {
       </div>
     </section>
 
-    <footer class="sidebar-custom-entry">
-      <button type="button" class="custom-btn" @click="router.push('/settings')">
-        <Icon icon="mdi:cog-outline" width="16" />
-        <span>custom</span>
-      </button>
-      <button type="button" class="help-btn" title="帮助"><Icon icon="mdi:help-circle-outline" width="16" /></button>
-    </footer>
   </section>
 </template>
 
