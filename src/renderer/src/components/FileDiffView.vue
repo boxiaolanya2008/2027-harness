@@ -18,7 +18,7 @@ const props = withDefaults(defineProps<{
   path: '',
   operation: 'update',
   hideHeader: false,
-  foldUnchanged: false,
+  foldUnchanged: true,
   contextLines: 3
 })
 

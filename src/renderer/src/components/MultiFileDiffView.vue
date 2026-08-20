@@ -1,14 +1,29 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref } from 'vue'
 import { Icon } from '@iconify/vue'
 import type { DiffFileBrief } from '@/types'
 import { getDiffStats, makeDiffRows } from '@/utils/fileDiff'
 
 const props = withDefaults(defineProps<{
   files?: DiffFileBrief[]
+  contextLines?: number
 }>(), {
-  files: () => []
+  files: () => [],
+  contextLines: 3
 })
+
+const expandedFolds = ref<Map<string, Set<number>>>(new Map())
+
+function isFoldExpanded(filePath: string, foldId: number) {
+  return expandedFolds.value.get(filePath)?.has(foldId) ?? false
+}
+function expandFold(filePath: string, foldId: number) {
+  const next = new Map(expandedFolds.value)
+  const set = new Set(next.get(filePath) ?? [])
+  set.add(foldId)
+  next.set(filePath, set)
+  expandedFolds.value = next
+}
 
 function fileStats(f: DiffFileBrief) {
   // Prefer real diff calculation when before/after are provided (fixes +0 -0 bug)
@@ -31,7 +46,6 @@ function fileRows(f: DiffFileBrief) {
     return makeDiffRows(f.before ?? '', f.after ?? '')
   }
   if (f.lines?.length) {
-    // legacy fallback: map lines to diff rows
     return f.lines.map(l => ({
       kind: l.type === 'add' ? 'addition' : l.type === 'del' ? 'deletion' : 'context',
       text: l.text,
@@ -43,6 +57,43 @@ function fileRows(f: DiffFileBrief) {
     return makeDiffRows('', f.content)
   }
   return [] as ReturnType<typeof makeDiffRows>
+}
+
+type DisplayItem =
+  | { type: 'row'; row: ReturnType<typeof makeDiffRows>[number] }
+  | { type: 'fold'; id: number; count: number }
+
+function displayRowsFor(f: DiffFileBrief): DisplayItem[] {
+  const rows = fileRows(f)
+  const ctx = Math.max(0, props.contextLines)
+  const result: DisplayItem[] = []
+  let idx = 0
+  let foldId = 0
+  while (idx < rows.length) {
+    if (rows[idx].kind !== 'context') {
+      result.push({ type: 'row', row: rows[idx] })
+      idx += 1
+      continue
+    }
+    let end = idx
+    while (end < rows.length && rows[end].kind === 'context') end += 1
+    const run = rows.slice(idx, end)
+    const retained = ctx * 2
+    if (run.length > retained + 2) {
+      const id = foldId++
+      result.push(...run.slice(0, ctx).map(r => ({ type: 'row' as const, row: r })))
+      if (isFoldExpanded(f.path, id)) {
+        result.push(...run.slice(ctx, run.length - ctx).map(r => ({ type: 'row' as const, row: r })))
+      } else {
+        result.push({ type: 'fold', id, count: run.length - ctx * 2 })
+      }
+      result.push(...run.slice(run.length - ctx).map(r => ({ type: 'row' as const, row: r })))
+    } else {
+      result.push(...run.map(r => ({ type: 'row' as const, row: r })))
+    }
+    idx = end
+  }
+  return result
 }
 </script>
 
@@ -61,21 +112,33 @@ function fileRows(f: DiffFileBrief) {
       </header>
 
       <div class="diff-body">
-        <template v-if="fileRows(file).length">
-          <div
-            v-for="(row, idx) in fileRows(file)"
-            :key="idx"
-            class="diff-row"
-            :class="{
-              'diff-row--add': row.kind === 'addition',
-              'diff-row--del': row.kind === 'deletion',
-              'diff-row--ctx': row.kind === 'context'
-            }"
-          >
-            <span class="diff-gutter">{{ row.afterLine ?? row.beforeLine ?? '' }}</span>
-            <span class="diff-marker">{{ row.kind === 'addition' ? '+' : row.kind === 'deletion' ? '-' : ' ' }}</span>
-            <code class="diff-text">{{ row.text || ' ' }}</code>
-          </div>
+        <template v-if="displayRowsFor(file).length">
+          <template v-for="(item, idx) in displayRowsFor(file)" :key="idx">
+            <button
+              v-if="item.type === 'fold'"
+              class="diff-fold"
+              type="button"
+              @click="expandFold(file.path, item.id)"
+            >
+              <span class="diff-fold-gutter">⋯</span>
+              <span class="diff-fold-marker" />
+              <span>{{ item.count }} 行未修改内容</span>
+              <span>展开</span>
+            </button>
+            <div
+              v-else
+              class="diff-row"
+              :class="{
+                'diff-row--add': item.row.kind === 'addition',
+                'diff-row--del': item.row.kind === 'deletion',
+                'diff-row--ctx': item.row.kind === 'context'
+              }"
+            >
+              <span class="diff-gutter">{{ item.row.afterLine ?? item.row.beforeLine ?? '' }}</span>
+              <span class="diff-marker">{{ item.row.kind === 'addition' ? '+' : item.row.kind === 'deletion' ? '-' : ' ' }}</span>
+              <code class="diff-text">{{ item.row.text || ' ' }}</code>
+            </div>
+          </template>
         </template>
         <div v-else class="diff-empty">空文件</div>
       </div>
@@ -194,6 +257,28 @@ function fileRows(f: DiffFileBrief) {
 .diff-row--del .diff-marker,
 .diff-row--del .diff-text { color: var(--diff-remove); }
 .diff-row--ctx .diff-text { color: var(--code-text); }
+
+.diff-fold {
+  --line-number-width: 36px;
+  display: grid;
+  grid-template-columns: var(--line-number-width) 14px minmax(max-content, 1fr) auto;
+  align-items: center;
+  width: 100%;
+  min-width: max-content;
+  padding: 3px 12px;
+  border: 0;
+  border-top: 1px solid var(--glass-border);
+  border-bottom: 1px solid var(--glass-border);
+  color: var(--text-secondary);
+  background: var(--panel-bg);
+  cursor: pointer;
+  font: 12px 'Cascadia Code', Consolas, monospace;
+  text-align: left;
+}
+.diff-fold-gutter { color: var(--text-faint); text-align: center; }
+.diff-fold-marker { height: 100%; border-left: 1px solid color-mix(in srgb, var(--glass-border) 75%, transparent); }
+.diff-fold:hover { color: var(--accent); background: var(--hover-bg); }
+.diff-fold span:last-child { color: var(--accent); }
 
 .diff-empty {
   padding: 16px 12px;
