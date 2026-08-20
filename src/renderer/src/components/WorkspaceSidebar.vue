@@ -18,9 +18,8 @@ const sortedConversations = computed(() => [...chat.conversations].sort((l, r) =
 const activeProjects = computed(() => chat.projects.filter(p => !p.archivedAt).sort((l, r) => r.updatedAt - l.updatedAt))
 const groupedProjects = computed(() => activeProjects.value.map(p => ({
   project: p,
-  conversations: sortedConversations.value.filter(c => c.projectId === p.id).slice(0, 4)
+  conversations: sortedConversations.value.filter(c => c.projectId === p.id)
 })))
-const recentConversations = computed(() => sortedConversations.value.slice(0, 7))
 
 async function pickWorkspace() {
   const path = await window.api.dialog.pickDir()
@@ -62,17 +61,38 @@ function shortTitle(c: Conversation) {
       <button class="nav-row" @click="router.push('/settings')"><Icon icon="mdi:puzzle-outline" width="16" /><span>插件</span></button>
     </nav>
 
-    <!-- 项目（修复：展示全部项目，切换工作区时旧会话不再消失，参考图二多项目） -->
-    <section class="side-section">
+    <!-- 项目：全部会话按项目分组，超出支持滚轮 -->
+    <section class="side-section side-section--projects">
       <div class="side-title">项目</div>
-      <div v-for="g in groupedProjects" :key="g.project.id" class="project-block">
-        <button class="project-folder active" @click="chat.selectProject(g.project.id)">
-          <Icon icon="mdi:folder-outline" width="16" />
-          <span>{{ g.project.name || '2027-harness' }}</span>
-        </button>
-        <div class="project-items">
+      <div class="projects-scroll">
+        <div v-for="g in groupedProjects" :key="g.project.id" class="project-block">
+          <button class="project-folder" :class="{ active: chat.selectedProjectId === g.project.id }" @click="chat.selectProject(g.project.id)">
+            <Icon icon="mdi:folder-outline" width="16" />
+            <span>{{ g.project.name || '2027-harness' }}</span>
+          </button>
+          <div class="project-items">
+            <button
+              v-for="c in g.conversations"
+              :key="c.id"
+              class="proj-item"
+              :class="{ active: c.id === chat.currentId }"
+              @click="chat.select(c.id)"
+            >
+              <span class="item-meta">[{{ formatShortId(c.id) }} {{ formatTime(c.updatedAt || c.createdAt) }}]</span>
+              <span class="item-title">{{ shortTitle(c) }}</span>
+            </button>
+            <p v-if="!g.conversations.length" class="empty-hint">暂无会话</p>
+          </div>
+        </div>
+        <div v-if="!groupedProjects.length" class="project-block">
+          <button class="project-folder" @click="pickWorkspace"><Icon icon="mdi:folder-outline" width="16" /><span>{{ workspaceName }}</span></button>
+          <p class="empty-hint">选择工作区后显示</p>
+        </div>
+        <!-- 未分组会话 -->
+        <div v-if="sortedConversations.filter(c=>!c.projectId).length" class="project-block">
+          <div class="side-title" style="padding-left:6px">未分组</div>
           <button
-            v-for="c in (g.conversations.length ? g.conversations : sortedConversations.slice(0,4))"
+            v-for="c in sortedConversations.filter(c=>!c.projectId)"
             :key="c.id"
             class="proj-item"
             :class="{ active: c.id === chat.currentId }"
@@ -81,33 +101,9 @@ function shortTitle(c: Conversation) {
             <span class="item-meta">[{{ formatShortId(c.id) }} {{ formatTime(c.updatedAt || c.createdAt) }}]</span>
             <span class="item-title">{{ shortTitle(c) }}</span>
           </button>
-          <button v-if="!g.conversations.length && !sortedConversations.length" class="proj-item" @click="pickWorkspace">
-            <span class="item-meta">[空]</span><span class="item-title">选择工作区后显示</span>
-          </button>
         </div>
-      </div>
-      <div v-if="!groupedProjects.length" class="project-block">
-        <button class="project-folder" @click="pickWorkspace"><Icon icon="mdi:folder-outline" width="16" /><span>{{ workspaceName }}</span></button>
-      </div>
-    </section>
-
-    <!-- 最近 -->
-    <section class="side-section side-section--recent">
-      <div class="side-title">最近</div>
-      <div class="recent-list">
-        <button
-          v-for="c in recentConversations"
-          :key="c.id"
-          class="recent-row"
-          :class="{ active: c.id === chat.currentId }"
-          @click="chat.select(c.id)"
-        >
-          <span class="item-meta">[{{ formatShortId(c.id) }} {{ formatTime(c.updatedAt || c.createdAt) }}]</span>
-          <span class="item-title">{{ shortTitle(c) }}</span>
-          <span v-if="c.id === chat.currentId" class="recent-dot" />
-        </button>
-        <EmptyState v-if="!recentConversations.length && chat.hydrated" title="暂无最近" desc="创建任务后显示" />
         <SkeletonCard v-if="!chat.hydrated" :rows="3" />
+        <EmptyState v-if="!sortedConversations.length && chat.hydrated" title="暂无会话" desc="创建任务后显示" />
       </div>
     </section>
 
@@ -146,14 +142,14 @@ function shortTitle(c: Conversation) {
 .nav-count { margin-left: auto; font-size: 11px; color: #94a3b8; }
 
 .side-section { padding: 12px 6px 0; flex: 0 0 auto; }
-.side-section--recent { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.side-section--projects { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 .side-title { padding: 6px 6px 4px; font-size: 12px; color: #94a3b8; font-weight: 600; }
 .project-block { margin-bottom: 8px; }
 .project-folder {
   display: flex; align-items: center; gap: 6px; width: 100%; padding: 7px 8px;
   border: 0; border-radius: 6px; background: #e8ecef; color: #1e293b; font-size: 13px; text-align: left; cursor: pointer;
 }
-.project-folder.active { background: #e8ecef; }
+.project-folder.active { background: #dbeafe; color: #1e40af; }
 .project-items { padding: 4px 0 0 12px; display: flex; flex-direction: column; gap: 1px; }
 .proj-item {
   display: flex; align-items: center; gap: 6px; width: 100%; padding: 5px 6px;
@@ -163,14 +159,15 @@ function shortTitle(c: Conversation) {
 .proj-item.active { background: #e2eef5; color: #0f172a; }
 .item-meta { flex: 0 0 auto; font-size: 11px; color: #94a3b8; font-family: 'Cascadia Code', Consolas, monospace; }
 .item-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.recent-list { flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 1px; padding-right: 2px; }
-.recent-row {
-  display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 6px;
-  border: 0; border-radius: 5px; background: transparent; color: #64748b; font-size: 12px; text-align: left; cursor: pointer;
+.projects-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden;
+  overscroll-behavior: contain; padding-right: 2px;
+  scrollbar-width: thin; scrollbar-color: #cbd5e1 transparent;
 }
-.recent-row:hover { background: rgba(255,255,255,0.6); color: #334155; }
-.recent-row.active { background: #e2eef5; color: #0f172a; }
-.recent-dot { width: 6px; height: 6px; border-radius: 50%; background: #0ea5e9; flex: 0 0 auto; margin-left: auto; }
+.projects-scroll::-webkit-scrollbar { width: 6px; }
+.projects-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+.projects-scroll::-webkit-scrollbar-track { background: transparent; }
+.empty-hint { padding: 6px 6px 6px 18px; font-size: 11px; color: #94a3b8; }
 
 .sidebar-custom-entry {
   flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
