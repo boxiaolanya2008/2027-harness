@@ -407,9 +407,10 @@ function handleViewLicense() {
 .row-text span { font-size: 12px; color: #64748b; line-height: 1.5; }
 .row-text a { color: #2563eb; text-decoration: none; }
 .row-text a:hover { text-decoration: underline; }
-.pill-select { min-width: 132px; }
+.pill-select { width: auto; min-width: 140px; max-width: 180px; flex: 0 0 auto; }
 .pill-select :deep(.el-input__wrapper) { border-radius: 999px; background: #fff; height: 30px; transition: all 0.2s ease; }
 .pill-select :deep(.el-input__wrapper:hover) { box-shadow: 0 0 0 1px #cbd5e1 inset; }
+.pill-select :deep(.el-input__inner) { text-align: left; }
 .card-row :deep(.el-switch) { --el-switch-height: 20px; flex: 0 0 auto; }
 .card-row :deep(.el-button) { height: 30px; border-radius: 999px; transition: all 0.15s ease; }
 .card-row :deep(.el-button--small) { height: 28px; }
