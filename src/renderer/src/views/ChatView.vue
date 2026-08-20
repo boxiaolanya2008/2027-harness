@@ -198,16 +198,12 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
 
 <template>
   <div class="codex-window">
-    <!-- 顶部窗口栏 -->
+    <!-- 顶部窗口栏（已按圈选删除右侧 Codex 版本与窗口控制，功能已下沉至底部信息栏） -->
     <div class="window-bar">
       <div class="window-bar-left">
         <span class="win-dot" />
         <span class="win-nav"><Icon icon="mdi:arrow-left" width="14" /> <Icon icon="mdi:arrow-right" width="14" /></span>
         <span class="win-menu">文件</span><span class="win-menu">编辑</span><span class="win-menu">视图</span><span class="win-menu">帮助</span>
-      </div>
-      <div class="window-bar-right">
-        <span class="codex-version"><span class="dot-green" /> Codex ++ 1.2.50</span>
-        <span class="win-ctrl">—</span><span class="win-ctrl">□</span><span class="win-ctrl win-ctrl--close">×</span>
       </div>
     </div>
 
@@ -222,24 +218,6 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
       </aside>
 
       <section class="center-pane">
-        <header v-if="!isEmpty" class="topbar">
-          <div class="topbar-context">
-            <strong class="conversation-title" :title="activeConversation?.title || '新任务'">{{ activeConversation?.title || '新任务' }}</strong>
-            <span v-if="activeWorkspaceName" class="topbar-pill topbar-pill--workspace" :title="chat.workspace || ''">
-              <Icon icon="mdi:folder-outline" width="14" />
-              <span>{{ activeWorkspaceName }}</span>
-            </span>
-            <span v-if="currentBranch" class="topbar-pill topbar-pill--branch" :title="`Git 分支: ${currentBranch}`">
-              <Icon icon="mdi:source-branch" width="14" />
-              <span>{{ currentBranch }}</span>
-            </span>
-          </div>
-          <div class="topbar-actions">
-            <button title="切换详情栏" @click="rightOpen = !rightOpen"><Icon icon="mdi:dock-right" width="17" /></button>
-            <button title="应用设置" @click="router.push('/settings')"><Icon icon="mdi:cog-outline" width="17" /></button>
-          </div>
-        </header>
-
         <div ref="listRef" class="message-scroll" @scroll="handleMessageScroll">
           <!-- 有消息时显示原有时间线 -->
           <template v-if="!isEmpty">
