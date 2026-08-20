@@ -63,7 +63,7 @@ function reasoningLabel(v: ReasoningEffort) {
       </button>
     </div>
 
-    <!-- 模型二级面板 -->
+    <!-- 模型二级面板（点击触发，显示在左侧固定位置） -->
     <div v-if="activeSub === 'model'" class="submenu submenu--model">
       <div v-if="!modelOptions.length" class="submenu-empty">暂无模型</div>
       <button
@@ -72,14 +72,14 @@ function reasoningLabel(v: ReasoningEffort) {
         type="button"
         class="submenu-row"
         :class="{ active: m === model }"
-        @mousedown.prevent="selectModel(m)"
+        @click="selectModel(m)"
       >
         <span class="submenu-text" :title="m">{{ m }}</span>
         <Icon v-if="m === model" icon="mdi:check" width="16" class="submenu-check" />
       </button>
     </div>
 
-    <!-- 推理强度二级面板（复刻图二：轻度/中/高/极高） -->
+    <!-- 推理强度二级面板（点击触发，显示在左侧固定位置） -->
     <div v-if="activeSub === 'reasoning'" class="submenu submenu--reasoning">
       <button
         v-for="opt in reasoningOptions"
@@ -87,7 +87,7 @@ function reasoningLabel(v: ReasoningEffort) {
         type="button"
         class="submenu-row"
         :class="{ active: opt.value === reasoning }"
-        @mousedown.prevent="selectReasoning(opt.value)"
+        @click="selectReasoning(opt.value)"
       >
         <span class="submenu-text">{{ opt.label }}</span>
         <Icon v-if="opt.value === reasoning" icon="mdi:check" width="16" class="submenu-check" />
