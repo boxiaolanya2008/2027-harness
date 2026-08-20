@@ -301,19 +301,18 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
           />
         </nav>
 
-        <!-- 底部输入区：顶部灰条与输入卡连体（可点击且真实联动） -->
+        <!-- 底部输入区：顶部灰条与输入卡分离，对应图片圆角细节 -->
         <div class="composer-area">
-          <div class="composer-combined">
-            <div class="composer-info-bar">
-              <button class="info-item info-item--btn" @click="handlePickWorkspace" title="点击选择工作区">
-                <Icon icon="mdi:folder-outline" width="14" /> {{ activeWorkspaceName }}
-              </button>
-              <button class="info-item info-item--btn" @click="handlePickWorkspace" title="本地工作区"><Icon icon="mdi:monitor" width="14" /> 本地</button>
-              <button class="info-item info-item--btn" @click="handleBranchClick" :title="`当前分支: ${currentBranch}，点击查看`"><Icon icon="mdi:source-branch" width="14" /> {{ currentBranch }}</button>
-              <span class="info-spacer" />
-              <button class="info-icon" title="布局" @click="rightOpen = !rightOpen"><Icon icon="mdi:dock-right" width="14" /></button>
-            </div>
-            <ChatComposer
+          <div class="composer-info-bar">
+            <button class="info-item info-item--btn" @click="handlePickWorkspace" title="点击选择工作区">
+              <Icon icon="mdi:folder-outline" width="14" /> {{ activeWorkspaceName }}
+            </button>
+            <button class="info-item info-item--btn" @click="handlePickWorkspace" title="本地工作区"><Icon icon="mdi:monitor" width="14" /> 本地</button>
+            <button class="info-item info-item--btn" @click="handleBranchClick" :title="`当前分支: ${currentBranch}，点击查看`"><Icon icon="mdi:source-branch" width="14" /> {{ currentBranch }}</button>
+            <span class="info-spacer" />
+            <button class="info-icon" title="布局" @click="rightOpen = !rightOpen"><Icon icon="mdi:dock-right" width="14" /></button>
+          </div>
+          <ChatComposer
             v-model="input"
             :attachments="attachments"
             :running="chat.running"
@@ -331,7 +330,6 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
             @request-approve="handleApprove"
             @rename="handleRename"
           />
-          </div>
         </div>
       </section>
 
@@ -405,17 +403,13 @@ const isEmpty = computed(() => !activeConversation.value || !activeConversation.
 .assistant-message { width: min(820px, 100%); min-width: 0; color: #0f172a; line-height: 1.6; }
 .waiting { display: inline-flex; align-items: center; gap: 7px; color: #64748b; font-size: 13px; }
 
-.composer-area { flex: 0 0 auto; padding: 0 16px 12px; background: #fff; }
-.composer-combined {
-  width: min(880px, 100%); margin: 0 auto; background: #fff; border: 1px solid #e6eef3; border-radius: 16px;
-  overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.04);
-}
+.composer-area { flex: 0 0 auto; padding: 0 16px 12px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
 .composer-info-bar {
-  display: flex; align-items: center; gap: 8px; padding: 8px 12px;
-  background: #f8fafc; border-bottom: 1px solid #eef2f6;
-  font-size: 12px; color: #64748b;
+  display: flex; align-items: center; gap: 8px; padding: 8px 14px; margin: 0 auto;
+  width: min(880px, 100%); background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 999px;
+  font-size: 12px; color: #475569; box-shadow: 0 1px 2px rgba(0,0,0,0.03);
 }
-.composer-area .composer { width: 100% !important; margin: 0 !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; background: #fff !important; }
+.composer-area .composer { width: min(880px, 100%) !important; margin: 0 auto !important; border-radius: 16px !important; }
 .info-item { display: inline-flex; align-items: center; gap: 6px; }
 .info-item--btn {
   display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px;

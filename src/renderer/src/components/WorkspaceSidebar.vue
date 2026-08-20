@@ -62,10 +62,10 @@ function shortTitle(c: Conversation) {
       <button class="nav-row" @click="router.push('/settings')"><Icon icon="mdi:puzzle-outline" width="16" /><span>插件</span></button>
     </nav>
 
-    <!-- 项目 -->
+    <!-- 项目（修复：展示全部项目，切换工作区时旧会话不再消失，参考图二多项目） -->
     <section class="side-section">
       <div class="side-title">项目</div>
-      <div v-for="g in groupedProjects.slice(0,1)" :key="g.project.id" class="project-block">
+      <div v-for="g in groupedProjects" :key="g.project.id" class="project-block">
         <button class="project-folder active" @click="chat.selectProject(g.project.id)">
           <Icon icon="mdi:folder-outline" width="16" />
           <span>{{ g.project.name || '2027-harness' }}</span>
