@@ -2,261 +2,182 @@
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
+import { ElMessage } from 'element-plus'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
 import { useChatStore } from '@/stores/chat'
+import { useGithubStore } from '@/stores/github'
 import type { Conversation, Project } from '@/types'
 
 const router = useRouter()
 const chat = useChatStore()
-const workspaceName = computed(() => chat.workspace?.split(/[\\/]/).filter(Boolean).pop() || '选择工作区')
-const sortedConversations = computed(() => [...chat.conversations].sort((left, right) => {
-  const leftTime = left.updatedAt || left.createdAt
-  const rightTime = right.updatedAt || right.createdAt
-  return rightTime - leftTime
-}))
-const activeProjects = computed(() => chat.projects
-  .filter((project) => !project.archivedAt)
-  .sort((left, right) => right.updatedAt - left.updatedAt))
-const ungroupedConversations = computed(() => sortedConversations.value.filter((conversation) => !conversation.projectId))
-const groupedProjects = computed(() => activeProjects.value.map((project) => ({
-  project,
-  conversations: sortedConversations.value.filter((conversation) => conversation.projectId === project.id)
+const github = useGithubStore()
+
+const workspaceName = computed(() => chat.workspace?.split(/[\\/]/).filter(Boolean).pop() || '2027-harness')
+const sortedConversations = computed(() => [...chat.conversations].sort((l, r) => (r.updatedAt || r.createdAt) - (l.updatedAt || l.createdAt)))
+const activeProjects = computed(() => chat.projects.filter(p => !p.archivedAt).sort((l, r) => r.updatedAt - l.updatedAt))
+const groupedProjects = computed(() => activeProjects.value.map(p => ({
+  project: p,
+  conversations: sortedConversations.value.filter(c => c.projectId === p.id).slice(0, 4)
 })))
+const recentConversations = computed(() => sortedConversations.value.slice(0, 7))
 
 async function pickWorkspace() {
   const path = await window.api.dialog.pickDir()
   if (!path) return
   await chat.selectWorkspace(path)
 }
-
-function isExpanded(project: Project) {
-  return chat.expandedProjectIds.includes(project.id)
+function isExpanded(project: Project) { return chat.expandedProjectIds.includes(project.id) }
+function formatShortId(id: string) { return id.slice(0, 7) }
+function formatTime(ts: number) {
+  const d = new Date(ts)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
-
-function projectHasCurrent(conversations: Conversation[]) {
-  const currentId = chat.currentId
-  return !!currentId && conversations.some((item) => item.id === currentId)
-}
-
-function isProjectHeadActive(project: Project, conversations: Conversation[]) {
-  return project.id === chat.selectedProjectId && !projectHasCurrent(conversations)
-}
-
-function formatConversationTime(conversation: Conversation) {
-  const timestamp = conversation.updatedAt || conversation.createdAt
-  const date = new Date(timestamp)
-  const now = new Date()
-  const sameDay = date.toDateString() === now.toDateString()
-  return new Intl.DateTimeFormat('zh-CN', sameDay ? { hour: '2-digit', minute: '2-digit' } : { month: '2-digit', day: '2-digit' }).format(date)
+function shortTitle(c: Conversation) {
+  const t = c.title?.trim() || '新对话'
+  return t.length > 18 ? t.slice(0, 18) + '…' : t
 }
 </script>
 
 <template>
-  <section class="workspace-sidebar">
-    <div class="workspace-section">
-      <div class="section-head">
-        <span>工作区</span>
-        <button title="选择目录" @click="pickWorkspace"><Icon icon="mdi:folder-plus-outline" width="17" /></button>
+  <section class="codex-sidebar">
+    <!-- 顶部 Codex 头 -->
+    <header class="codex-head">
+      <div class="codex-brand">
+        <span class="brand">Codex</span>
+        <Icon icon="mdi:chevron-down" width="14" class="brand-chevron" />
       </div>
-      <button class="workspace-heading" :title="chat.workspace || '选择工作区'" @click="pickWorkspace">
-        <Icon icon="mdi:folder-open-outline" width="18" />
-        <span class="workspace-heading-copy"><strong>{{ workspaceName }}</strong><small>{{ chat.workspace || '选择本地目录开始任务' }}</small></span>
-        <Icon class="workspace-heading-action" icon="mdi:chevron-right" width="16" />
-      </button>
-      <SkeletonCard v-if="!chat.hydrated" :rows="3" />
-    </div>
+      <div class="head-actions">
+        <button class="head-icon" title="搜索"><Icon icon="mdi:magnify" width="16" /></button>
+        <button class="head-icon head-icon--bell" title="通知"><Icon icon="mdi:bell-outline" width="16" /><span class="blue-dot" /></button>
+      </div>
+    </header>
 
-    <section class="conversation-section">
-      <div class="section-head conversation-heading">
-        <span>任务</span>
-        <div class="heading-actions">
-          <span class="conversation-count">{{ sortedConversations.length }}</span>
-          <button class="new-task-btn" title="新建任务" @click="chat.newConversation()">
-            <Icon icon="mdi:plus" width="16" />
-            <span>新建任务</span>
+    <!-- 主导航 -->
+    <nav class="main-nav">
+      <button class="nav-row" @click="chat.newConversation()"><Icon icon="mdi:square-edit-outline" width="16" /><span>新对话</span></button>
+      <button class="nav-row" @click="chat.newConversation()"><Icon icon="mdi:source-pull" width="16" /><span>拉取请求</span><span v-if="github.prs.length" class="nav-count">{{ github.prs.length }}</span></button>
+      <button class="nav-row" @click="ElMessage && ElMessage.info('已安排为空')"><Icon icon="mdi:clock-outline" width="16" /><span>已安排</span></button>
+      <button class="nav-row" @click="router.push('/settings')"><Icon icon="mdi:puzzle-outline" width="16" /><span>插件</span></button>
+    </nav>
+
+    <!-- 项目 -->
+    <section class="side-section">
+      <div class="side-title">项目</div>
+      <div v-for="g in groupedProjects.slice(0,1)" :key="g.project.id" class="project-block">
+        <button class="project-folder active" @click="chat.selectProject(g.project.id)">
+          <Icon icon="mdi:folder-outline" width="16" />
+          <span>{{ g.project.name || '2027-harness' }}</span>
+        </button>
+        <div class="project-items">
+          <button
+            v-for="c in (g.conversations.length ? g.conversations : sortedConversations.slice(0,4))"
+            :key="c.id"
+            class="proj-item"
+            :class="{ active: c.id === chat.currentId }"
+            @click="chat.select(c.id)"
+          >
+            <span class="item-meta">[{{ formatShortId(c.id) }} {{ formatTime(c.updatedAt || c.createdAt) }}]</span>
+            <span class="item-title">{{ shortTitle(c) }}</span>
+          </button>
+          <button v-if="!g.conversations.length && !sortedConversations.length" class="proj-item" @click="pickWorkspace">
+            <span class="item-meta">[空]</span><span class="item-title">选择工作区后显示</span>
           </button>
         </div>
       </div>
-      <div class="conversation-list">
-        <section v-for="group in groupedProjects" :key="group.project.id" class="project-group">
-          <div class="project-head" :class="{ active: isProjectHeadActive(group.project, group.conversations) }">
-            <button class="project-toggle" :title="isExpanded(group.project) ? '折叠项目' : '展开项目'" :aria-expanded="isExpanded(group.project)" @click="chat.toggleProjectExpanded(group.project.id)">
-              <Icon class="project-toggle-icon" :class="{ expanded: isExpanded(group.project) }" icon="mdi:chevron-right" width="16" />
-            </button>
-            <button class="project-select" :title="group.project.workspace" @click="chat.selectProject(group.project.id)">
-              <Icon icon="mdi:folder-outline" width="16" /><span>{{ group.project.name }}</span>
-            </button>
-            <div class="project-actions">
-              <button class="project-action" title="在该项目下新建任务" @click.stop="chat.selectProject(group.project.id); chat.newConversation()"><Icon icon="mdi:message-plus-outline" width="15" /></button>
-              <button class="project-action" title="归档项目" @click.stop="chat.archiveProject(group.project.id)"><Icon icon="mdi:archive-outline" width="15" /></button>
-            </div>
-          </div>
-          <el-collapse-transition>
-            <div v-show="isExpanded(group.project)" class="project-conversations">
-            <button v-for="conversation in group.conversations" :key="conversation.id" class="conversation-row" :class="{ active: conversation.id === chat.currentId }" @click="chat.select(conversation.id)">
-              <Icon class="conversation-icon" icon="mdi:message-text-outline" width="16" />
-              <span class="conversation-copy"><strong>{{ conversation.title }}</strong></span>
-              <span class="conversation-actions"><span class="conversation-time">{{ formatConversationTime(conversation) }}</span><span class="delete-action" title="删除任务" @click.stop="chat.remove(conversation.id)"><Icon icon="mdi:delete-outline" width="15" /></span></span>
-            </button>
-            <p v-if="!group.conversations.length" class="empty-group">尚无任务</p>
-            </div>
-          </el-collapse-transition>
-        </section>
-
-        <section v-if="ungroupedConversations.length" class="project-group ungrouped-group">
-          <div class="project-head" :class="{ active: chat.selectedProjectId === null && !ungroupedConversations.some((item) => item.id === chat.currentId) }">
-            <button class="project-select" @click="chat.selectProject(null)"><Icon icon="mdi:message-outline" width="16" /><span>未分组</span></button>
-            <div class="project-actions">
-              <button class="project-action" title="新建未分组任务" @click.stop="chat.selectProject(null); chat.newConversation()"><Icon icon="mdi:message-plus-outline" width="15" /></button>
-            </div>
-          </div>
-          <div class="project-conversations">
-            <button v-for="conversation in ungroupedConversations" :key="conversation.id" class="conversation-row" :class="{ active: conversation.id === chat.currentId }" @click="chat.select(conversation.id)">
-              <Icon class="conversation-icon" icon="mdi:message-text-outline" width="16" />
-              <span class="conversation-copy"><strong>{{ conversation.title }}</strong></span>
-              <span class="conversation-actions"><span class="conversation-time">{{ formatConversationTime(conversation) }}</span><span class="delete-action" title="删除任务" @click.stop="chat.remove(conversation.id)"><Icon icon="mdi:delete-outline" width="15" /></span></span>
-            </button>
-          </div>
-        </section>
-        <EmptyState v-if="!sortedConversations.length && !activeProjects.length && chat.hydrated" title="还没有项目或任务" desc="选择本地目录即可创建项目。" />
+      <div v-if="!groupedProjects.length" class="project-block">
+        <button class="project-folder" @click="pickWorkspace"><Icon icon="mdi:folder-outline" width="16" /><span>{{ workspaceName }}</span></button>
       </div>
     </section>
 
-    <!-- 设置入口（图二圈选处） -->
+    <!-- 最近 -->
+    <section class="side-section side-section--recent">
+      <div class="side-title">最近</div>
+      <div class="recent-list">
+        <button
+          v-for="c in recentConversations"
+          :key="c.id"
+          class="recent-row"
+          :class="{ active: c.id === chat.currentId }"
+          @click="chat.select(c.id)"
+        >
+          <span class="item-meta">[{{ formatShortId(c.id) }} {{ formatTime(c.updatedAt || c.createdAt) }}]</span>
+          <span class="item-title">{{ shortTitle(c) }}</span>
+          <span v-if="c.id === chat.currentId" class="recent-dot" />
+        </button>
+        <EmptyState v-if="!recentConversations.length && chat.hydrated" title="暂无最近" desc="创建任务后显示" />
+        <SkeletonCard v-if="!chat.hydrated" :rows="3" />
+      </div>
+    </section>
+
     <footer class="sidebar-custom-entry">
       <button type="button" class="custom-btn" @click="router.push('/settings')">
         <Icon icon="mdi:cog-outline" width="16" />
         <span>custom</span>
       </button>
-      <button type="button" class="help-btn" title="帮助">
-        <Icon icon="mdi:help-circle-outline" width="16" />
-      </button>
+      <button type="button" class="help-btn" title="帮助"><Icon icon="mdi:help-circle-outline" width="16" /></button>
     </footer>
   </section>
 </template>
 
 <style scoped>
-.workspace-sidebar { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; }
-.workspace-section { flex: 0 0 auto; padding: var(--space-3) var(--space-2) var(--space-2); border-bottom: 1px solid var(--glass-border); }
-.section-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; color: var(--text-secondary); font-size: 11px; font-weight: 600; }
-.section-head button { display: inline-flex; align-items: center; gap: 5px; border: 0; color: var(--text-secondary); background: transparent; cursor: pointer; }
-.section-head button:hover { color: var(--accent); }
-.workspace-heading { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px 8px; border: 1px solid var(--glass-border); border-radius: var(--radius-sm); color: var(--text-primary); background: var(--surface-bg); text-align: left; cursor: pointer; }
-.workspace-heading:hover { border-color: var(--accent); background: var(--hover-bg); }
-.workspace-heading-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 3px; }
-.workspace-heading-copy strong, .workspace-heading-copy small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.workspace-heading-copy strong { font-size: 13px; font-weight: 600; }
-.workspace-heading-copy small { color: var(--text-faint); font-size: 10px; }
-.workspace-heading-action { flex: 0 0 auto; color: var(--text-faint); }
-.conversation-section { display: flex; flex: 1; min-height: 0; flex-direction: column; padding: var(--space-4) var(--space-2) var(--space-2); }
-.conversation-heading { padding: 0 5px 8px; margin-bottom: 0; }
-.conversation-count { color: var(--text-faint); font-size: 11px; font-weight: 500; }
-.conversation-list { min-width: 0; min-height: 0; flex: 1 1 auto; overflow-y: auto; overscroll-behavior: contain; }
-.project-group { margin-bottom: 6px; background: transparent; }
-.project-head { position: relative; display: flex; align-items: center; min-width: 0; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; }
-.project-head:hover { color: var(--text-primary); background: var(--hover-bg); }
-.project-head.active { color: var(--text-primary); background: var(--selected-bg); box-shadow: inset 3px 0 0 var(--accent); }
-.project-toggle { display: grid; place-items: center; flex: 0 0 auto; width: 28px; height: 30px; padding: 0; border: 0; border-radius: var(--radius-sm); color: inherit; background: transparent; cursor: pointer; }
-.project-toggle-icon { transition: transform 180ms ease; }
-.project-toggle-icon.expanded { transform: rotate(90deg); }
-.project-toggle:hover { color: var(--accent); background: var(--hover-bg); }
-.project-select { display: flex; min-width: 0; flex: 1; align-items: center; gap: 6px; padding: calc(7px * var(--ui-space-scale)) 5px calc(7px * var(--ui-space-scale)) 0; border: 0; color: inherit; background: transparent; cursor: pointer; text-align: left; }
-.project-select span { min-width: 0; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 650; }
-.project-select small { color: var(--text-faint); font-size: 10px; }
-.heading-actions { display: flex; align-items: center; gap: 8px; }
-.new-task-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  padding: 2px 7px;
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
-  background: var(--surface-bg);
-  color: var(--text-secondary);
-  font-size: 11px;
-  cursor: pointer;
-  font-weight: 500;
-  transition: all 0.15s ease;
+.codex-sidebar { display: flex; flex: 1 1 auto; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; background: #f3f7f7; color: #334155; }
+.codex-head {
+  height: 36px; display: flex; align-items: center; justify-content: space-between;
+  padding: 0 10px; border-bottom: 1px solid #e6eef3; flex: 0 0 auto;
 }
-.new-task-btn:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-  background: var(--selected-bg);
+.codex-brand { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; font-weight: 700; color: #0f172a; }
+.brand-chevron { color: #94a3b8; }
+.head-actions { display: inline-flex; gap: 6px; }
+.head-icon {
+  position: relative; display: grid; place-items: center; width: 26px; height: 26px;
+  border: 0; border-radius: 6px; background: transparent; color: #64748b; cursor: pointer;
 }
-.project-actions {
-  display: flex;
-  align-items: center;
-  opacity: 0;
-  transition: opacity 0.15s ease;
+.head-icon:hover { background: rgba(255,255,255,0.7); color: #0f172a; }
+.head-icon--bell .blue-dot { position: absolute; top: 4px; right: 6px; width: 6px; height: 6px; border-radius: 50%; background: #0ea5e9; border: 1px solid #f3f7f7; }
+
+.main-nav { padding: 8px 6px; display: flex; flex-direction: column; gap: 1px; border-bottom: 1px solid #e6eef3; flex: 0 0 auto; }
+.nav-row {
+  display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 8px;
+  border: 0; border-radius: 6px; background: transparent; color: #334155; font-size: 13px; text-align: left; cursor: pointer;
 }
-.project-head:hover .project-actions,
-.project-head:focus-within .project-actions {
-  opacity: 1;
+.nav-row:hover { background: rgba(255,255,255,0.7); }
+.nav-count { margin-left: auto; font-size: 11px; color: #94a3b8; }
+
+.side-section { padding: 12px 6px 0; flex: 0 0 auto; }
+.side-section--recent { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.side-title { padding: 6px 6px 4px; font-size: 12px; color: #94a3b8; font-weight: 600; }
+.project-block { margin-bottom: 8px; }
+.project-folder {
+  display: flex; align-items: center; gap: 6px; width: 100%; padding: 7px 8px;
+  border: 0; border-radius: 6px; background: #e8ecef; color: #1e293b; font-size: 13px; text-align: left; cursor: pointer;
 }
-.project-action {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border: 0;
-  border-radius: 4px;
-  color: var(--text-faint);
-  background: transparent;
-  cursor: pointer;
+.project-folder.active { background: #e8ecef; }
+.project-items { padding: 4px 0 0 12px; display: flex; flex-direction: column; gap: 1px; }
+.proj-item {
+  display: flex; align-items: center; gap: 6px; width: 100%; padding: 5px 6px;
+  border: 0; border-radius: 5px; background: transparent; color: #64748b; font-size: 12px; text-align: left; cursor: pointer;
 }
-.project-action:hover {
-  color: var(--accent);
-  background: var(--hover-bg);
+.proj-item:hover { background: rgba(255,255,255,0.6); color: #334155; }
+.proj-item.active { background: #e2eef5; color: #0f172a; }
+.item-meta { flex: 0 0 auto; font-size: 11px; color: #94a3b8; font-family: 'Cascadia Code', Consolas, monospace; }
+.item-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-list { flex: 1 1 auto; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 1px; padding-right: 2px; }
+.recent-row {
+  display: flex; align-items: center; gap: 6px; width: 100%; padding: 6px 6px;
+  border: 0; border-radius: 5px; background: transparent; color: #64748b; font-size: 12px; text-align: left; cursor: pointer;
 }
-.project-conversations { margin-top: 2px; padding: 0 0 2px 22px; display: flex; flex-direction: column; gap: 1px; background: transparent; }
-.conversation-row { position: relative; display: flex; align-items: center; gap: 8px; width: 100%; padding: calc(5px * var(--ui-space-scale)) var(--space-2); border: 0; border-radius: var(--radius-sm); color: var(--text-secondary); background: transparent; cursor: pointer; text-align: left; font-size: 13px; }
-.conversation-row:hover { background: var(--hover-bg); color: var(--text-primary); }
-.conversation-row.active { color: var(--text-primary); background: var(--selected-bg); box-shadow: none; }
-.conversation-icon { flex: 0 0 auto; color: var(--text-faint); }
-.conversation-copy { display: flex; min-width: 0; flex: 1; }
-.conversation-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; font-weight: 500; }
-.conversation-actions { display: flex; flex: 0 0 auto; align-items: center; gap: 3px; color: var(--text-faint); }
-.conversation-time { font-size: 10px; }
-.delete-action { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 5px; opacity: 0; }
-.conversation-row:hover .delete-action, .conversation-row:focus-visible .delete-action { opacity: 1; }
-.delete-action:hover { color: var(--danger, #d9534f); background: var(--selected-bg); }
+.recent-row:hover { background: rgba(255,255,255,0.6); color: #334155; }
+.recent-row.active { background: #e2eef5; color: #0f172a; }
+.recent-dot { width: 6px; height: 6px; border-radius: 50%; background: #0ea5e9; flex: 0 0 auto; margin-left: auto; }
+
 .sidebar-custom-entry {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 10px 12px;
-  border-top: 1px solid var(--glass-border);
-  background: var(--panel-bg);
+  flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 10px 12px; border-top: 1px solid #e6eef3; background: #f3f7f7;
 }
-.custom-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 12px;
-  cursor: pointer;
-}
-.custom-btn:hover { background: var(--hover-bg); color: var(--text-primary); }
-.help-btn {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--text-faint);
-  cursor: pointer;
-}
-.help-btn:hover { background: var(--hover-bg); color: var(--text-secondary); }
-.sidebar-footer { flex: 0 0 auto; padding: var(--space-3) var(--space-3) var(--space-4); border-top: 1px solid var(--glass-border); background: var(--panel-bg); }
-.new-task { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 9px 12px; border: 1px solid var(--accent); border-radius: var(--radius-sm); color: var(--accent-contrast, #fff); background: var(--accent); cursor: pointer; font-size: 13px; font-weight: 600; }
-.new-task:hover { filter: brightness(0.96); }
+.custom-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 8px; border: 0; border-radius: 6px; background: transparent; color: #475569; font-size: 12px; cursor: pointer; }
+.custom-btn:hover { background: rgba(255,255,255,0.7); color: #0f172a; }
+.help-btn { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 50%; background: transparent; color: #94a3b8; cursor: pointer; }
+.help-btn:hover { background: rgba(255,255,255,0.7); color: #475569; }
 </style>

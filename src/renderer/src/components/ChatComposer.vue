@@ -378,7 +378,7 @@ function submit() {
           type="textarea"
           :autosize="{ minRows: 1, maxRows: 6 }"
           resize="none"
-          placeholder="询问任何问题"
+          placeholder="随心输入"
           @keydown="onKeydown"
           @keydown.enter.exact.prevent="submit"
           @input="onInput"
