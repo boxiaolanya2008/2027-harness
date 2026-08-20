@@ -227,7 +227,7 @@ function handleViewLicense() {
         <template v-else-if="active === 'model'">
           <h1 class="page-h1">模型</h1>
           <p class="page-desc">管理自定义模型供应商与推理强度，配置后可在聊天中使用。API Key 与 Base URL 真实持久化，已完整保留改版前功能。</p>
-          <div class="card"><div class="card-pad"><ModelSettings /></div></div>
+          <ModelSettings />
         </template>
 
         <template v-else-if="active === 'config'">
