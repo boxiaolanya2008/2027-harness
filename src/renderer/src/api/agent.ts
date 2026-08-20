@@ -1,6 +1,8 @@
 import { streamTurn, type ChatMsg, type ProviderToolCall, type ChatContentPart, type RequestConfig } from './openai'
 import { TOOLS, SYSTEM, execTool } from './agent-tools'
 import type { AssistantTurnEvent, AssistantTurnEventInput, FileEditPreview, Settings, StreamState } from '@/types'
+import { assessShellCommand } from '@/utils/shellSafety'
+import { formatBlockedMessage, formatDeniedMessage, guardShellCommand } from '@/utils/shellGuard'
 
 // The agent consumes and emits the same ordered turn event protocol as the provider stream.
 export type AgentEvent = AssistantTurnEvent
@@ -259,6 +261,26 @@ export async function runAgent(
         if (fileEditPreview) emit({ ...call, fileEditPreview })
       }
       if (aborted(signal)) return completeInterruptedBatch('aborted', 'Agent 已取消，工具未执行')
+      if (name === 'run_command' && call.args && typeof (call.args as Record<string, unknown>).command === 'string') {
+        const command = String((call.args as Record<string, unknown>).command || '')
+        const quickAssessment = assessShellCommand(command)
+        if (quickAssessment?.level === 'critical') {
+          const reason = formatBlockedMessage(quickAssessment, command)
+          emit({ type: 'tool_result', callId: call.callId, providerCallId: call.providerCallId, name, status: 'failed', content: `错误: ${reason}`, error: reason })
+          toolMessages.push({ role: 'tool', tool_call_id: protocolCallId, name, content: `错误: ${reason}` })
+          return completeInterruptedBatch('failed', reason)
+        }
+        if (quickAssessment) {
+          const guard = await guardShellCommand(command)
+          if (guard.decision !== 'allow') {
+            const isBlocked = guard.decision === 'blocked'
+            const reason = isBlocked ? formatBlockedMessage(guard.assessment!, command) : formatDeniedMessage(guard.assessment!, command)
+            emit({ type: 'tool_result', callId: call.callId, providerCallId: call.providerCallId, name, status: 'failed', content: `错误: ${reason}`, error: reason })
+            toolMessages.push({ role: 'tool', tool_call_id: protocolCallId, name, content: `错误: ${reason}` })
+            return completeInterruptedBatch('failed', reason)
+          }
+        }
+      }
       emit({
         type: 'tool_result',
         callId: call.callId,

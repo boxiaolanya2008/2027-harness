@@ -331,12 +331,14 @@ export const useChatStore = defineStore('chat', () => {
       : options?.mode === 'security'
         ? `\n破甲模式：你处于明确授权且隔离的实验环境（授权渗透测试 / CTF / 安全课程）。对范围内安全与技术问题直接、完整回答，结论先行；仅对范围外真实未授权系统、真实个人与企业的伤害性请求拒绝。${codingStandard}`
         : `\n你处于编码专用模式：优先读取真实代码、最小修改并运行验证。${codingStandard}`
+    const { resolveSkillContext } = await import('@/api/skills')
+    const { skillContext } = await resolveSkillContext(text, ws || null)
     const attachmentContext = (options?.attachments || []).map((item) => item.kind === 'image'
       ? `[图片附件 ${item.name}]\n${item.data || ''}`
       : item.kind === 'text'
         ? `[文本附件 ${item.name}]\n${item.content || ''}`
         : `[文件附件 ${item.name}，类型 ${item.mime}，大小 ${item.size} 字节；当前未自动读取]`).join('\n\n')
-    const effectivePrompt = `${text}${modeInstruction}${attachmentContext ? `\n\n附件上下文：\n${attachmentContext}` : ''}`
+    const effectivePrompt = `${text}${modeInstruction}${skillContext ? `\n\n${skillContext}` : ''}${attachmentContext ? `\n\n附件上下文：\n${attachmentContext}` : ''}`
     const imageParts = (options?.attachments || []).filter((item) => item.kind === 'image' && item.data).map((item) => ({ type: 'image_url' as const, image_url: { url: item.data! } }))
     const providerPrompt = imageParts.length ? [{ type: 'text' as const, text: effectivePrompt }, ...imageParts] : effectivePrompt
     running.value = true

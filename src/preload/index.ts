@@ -187,6 +187,12 @@ const api = {
     restoreBatch: (request: RestoreBatchRequest): Promise<RestoreResult[]> =>
       ipcRenderer.invoke('changes:restoreBatch', request)
   },
+  skills: {
+    list: (workspace: string): Promise<import('../main/ipc/skills').SkillSummary[]> =>
+      ipcRenderer.invoke('skills:list', workspace),
+    read: (workspace: string, name: string): Promise<import('../main/ipc/skills').SkillDetail> =>
+      ipcRenderer.invoke('skills:read', workspace, name),
+  },
   shell: {
     run: (cwd: string, command: string, args: string[], context?: ChangeContext) =>
       ipcRenderer.invoke('shell:run', cwd, command, args, context),

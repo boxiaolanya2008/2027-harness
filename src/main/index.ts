@@ -9,6 +9,8 @@ import { runCommand } from './ipc/shell'
 import { gh, ghPaginate } from './ipc/github'
 import { StateRepository } from './state/repository'
 import { ChangeJournal, parseWriteContext } from './state/change-journal'
+import { assessShellCommand } from './shellSafety'
+import { listSkills, readSkill } from './ipc/skills'
 
 const exec = promisify(execFile)
 
@@ -216,6 +218,11 @@ function registerIpc() {
   ipcMain.handle('changes:restoreBatch', (_e, request: unknown) => changes.restoreBatch(request))
 
   ipcMain.handle('shell:run', async (event, cwd: string, command: string, args: string[], context?: unknown) => {
+    const rawUserCommand = Array.isArray(args) && args.length >= 2 && (command === 'cmd' || command === 'sh') ? String(args[1] || '') : [command, ...(Array.isArray(args) ? args : [])].join(' ')
+    const assessment = assessShellCommand(rawUserCommand)
+    if (assessment?.level === 'critical') {
+      throw new Error(`已被安全策略拦截：${assessment.reason}（${assessment.matched}）。如需执行请在系统终端手动操作。`)
+    }
     const parsedContext = context === undefined ? undefined : parseWriteContext(context)
     if (context !== undefined && parsedContext === null) throw new Error('Invalid shell context')
     const before = parsedContext ? await snapshotWorkspace(cwd) : undefined
@@ -236,6 +243,9 @@ function registerIpc() {
     }
     return { code: result.code, output }
   })
+
+  ipcMain.handle('skills:list', (_e, workspace: string) => listSkills(workspace))
+  ipcMain.handle('skills:read', (_e, workspace: string, name: string) => readSkill(workspace, name))
 
   // GitHub REST
   ipcMain.handle('gh:get', (_e, path: string) => gh(path))

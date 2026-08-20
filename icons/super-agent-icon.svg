@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img">
+  <title>Super-Agent Icon</title>
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b1220"/><stop offset="100%" stop-color="#162a4a"/>
+    </linearGradient>
+    <linearGradient id="o" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#70a5ff"/><stop offset="100%" stop-color="#c084fc"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="26" fill="url(#g)"/>
+  <ellipse cx="64" cy="64" rx="46" ry="37" fill="none" stroke="url(#o)" stroke-width="2.8" opacity="0.95"/>
+  <path d="M38 40 L28 40 L28 88 L38 88" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M90 40 L100 40 L100 88 L90 88" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="44" y="50" width="36" height="7" rx="3.5" fill="white" opacity="0.92"/>
+  <rect x="44" y="63" width="26" height="7" rx="3.5" fill="white" opacity="0.7"/>
+  <rect x="44" y="76" width="32" height="7" rx="3.5" fill="white" opacity="0.52"/>
+  <g transform="translate(88,34)">
+    <circle r="14" fill="white"/>
+    <path d="M -5 1 L -0.7 5.2 L 6 -4.6" fill="none" stroke="#0b1220" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

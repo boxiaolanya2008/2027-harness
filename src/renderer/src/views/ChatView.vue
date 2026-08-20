@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
-import type { ComposerAttachment, ComposerMode } from '@/types'
+import type { ComposerAddAction, ComposerAttachment, ComposerMode, ComposerPluginItem, DiffFileBrief } from '@/types'
 import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
+import { ElMessage } from 'element-plus'
 import EmptyState from '@/components/EmptyState.vue'
 import SkeletonCard from '@/components/SkeletonCard.vue'
 import MarkdownView from '@/components/MarkdownView.vue'
 import TurnTimeline from '@/components/TurnTimeline.vue'
+import MultiFileDiffView from '@/components/MultiFileDiffView.vue'
 import RightPanel from '@/components/RightPanel.vue'
 import WorkspaceSidebar from '@/components/WorkspaceSidebar.vue'
 import ChatComposer from '@/components/ChatComposer.vue'
@@ -58,6 +60,53 @@ const editingMessageId = ref<string | null>(null)
 const editingText = ref('')
 const attachments = ref<ComposerAttachment[]>([])
 const composerMode = ref<ComposerMode>('coding')
+// Add-menu & slash panel are layout-only: parent supplies structure, no example data hard-coded.
+const composerAddActions = ref<ComposerAddAction[]>([])
+const composerPlugins = ref<ComposerPluginItem[]>([])
+// Diff stack: derive from real preview data if available, otherwise from workspace change-journal (no hard-coded examples)
+// This fixes the screenshot bug where header showed +0 -0 or path mismatched body.
+const workspaceDiffs = ref<DiffFileBrief[]>([])
+async function loadWorkspaceDiffs() {
+  const ws = chat.workspace
+  if (!ws) { workspaceDiffs.value = []; return }
+  try {
+    // Prefer change-journal (captures file_snapshot from tool writes) – real environment, not copy-paste
+    const changes: any[] = await (window as any).api?.changes?.list?.({ workspace: ws }) || []
+    if (changes.length) {
+      workspaceDiffs.value = changes.slice(0, 8).map((c: any) => ({
+        path: c.path,
+        before: c.before?.content ?? '',
+        after: c.after?.content ?? ''
+      } as DiffFileBrief))
+      return
+    }
+  } catch {}
+  workspaceDiffs.value = []
+}
+watch(() => chat.workspace, loadWorkspaceDiffs, { immediate: true })
+watch(() => chat.current()?.id, loadWorkspaceDiffs)
+watch(() => activeConversation.value?.messages.length, loadWorkspaceDiffs)
+
+const previewDiffs = computed<DiffFileBrief[]>(() => {
+  const msg = [...(activeConversation.value?.messages || [])].reverse().find(m => m.role === 'assistant' && m.events?.length)
+  if (!msg?.events) return []
+  const previews = msg.events
+    .filter((e: any) => e.type === 'tool_call' && e.fileEditPreview)
+    .map((e: any) => e.fileEditPreview)
+  if (!previews.length) return []
+  const byPath = new Map<string, any>()
+  for (const p of previews) byPath.set(p.path, p)
+  return [...byPath.values()].slice(0, 8).map((p: any) => ({
+    path: p.path,
+    before: p.before?.content ?? '',
+    after: p.proposedContent ?? ''
+  } as DiffFileBrief))
+})
+
+const diffFiles = computed<DiffFileBrief[]>(() => {
+  // Preview takes precedence (live tool result), fallback to workspace journal
+  return previewDiffs.value.length ? previewDiffs.value : workspaceDiffs.value
+})
 
 const activeConversation = computed(() => chat.current())
 const activeWorkspaceName = computed(() => chat.workspace?.split(/[\\/]/).filter(Boolean).pop() || '')
@@ -124,6 +173,29 @@ async function send(payload?: { attachments: ComposerAttachment[]; mode: Compose
   await chat.sendPrompt(text, { attachments: payload?.attachments || attachments.value, mode: payload?.mode || composerMode.value })
   attachments.value = []
   scrollDown(true)
+}
+
+function handleAddAction(key: string) {
+  // layout hook: real file picking is delegated to parent / main process
+  ElMessage.info(`添加动作：${key}`)
+}
+
+function handlePlugin(key: string) {
+  ElMessage.info(`插件：${key}`)
+}
+
+function handleApprove() {
+  ElMessage.info('已请求批准')
+}
+
+function handleRename() {
+  const conv = activeConversation.value
+  if (!conv) return
+  const next = window.prompt('重命名当前聊天', conv.title)
+  if (next && next.trim()) {
+    conv.title = next.trim()
+    void chat.persistUiState()
+  }
 }
 
 function startEdit(messageId: string, content: string) {
@@ -248,8 +320,30 @@ watch(() => activeConversation.value?.id, () => {
         />
       </nav>
 
+      <!-- 多文件 Diff 叠层（图3布局，数据由 prop 传入，未内置示例文件） -->
+      <div v-if="diffFiles.length" class="diff-stack-wrap">
+        <MultiFileDiffView :files="diffFiles" />
+      </div>
+
       <footer class="composer-wrap">
-        <ChatComposer v-model="input" :attachments="attachments" :running="chat.running" :workspace-name="chat.workspace ? activeWorkspaceName : '普通对话'" :model="settings.settings.model" :has-github="settings.hasGithubToken" @update:attachments="attachments = $event" @submit="send" @stop="chat.stop" />
+        <ChatComposer
+          v-model="input"
+          :attachments="attachments"
+          :running="chat.running"
+          :workspace="chat.workspace"
+          :workspace-name="chat.workspace ? activeWorkspaceName : '普通对话'"
+          :model="settings.settings.model"
+          :has-github="settings.hasGithubToken"
+          :add-menu-actions="composerAddActions"
+          :add-menu-plugins="composerPlugins"
+          @update:attachments="attachments = $event"
+          @submit="send"
+          @stop="chat.stop"
+          @select-add-action="handleAddAction"
+          @select-plugin="handlePlugin"
+          @request-approve="handleApprove"
+          @rename="handleRename"
+        />
       </footer>
     </section>
 
@@ -319,6 +413,7 @@ watch(() => activeConversation.value?.id, () => {
 .assistant-message :deep(.diff-body) { max-width: 100%; overflow: auto; overscroll-behavior: contain; }
 .waiting { display: inline-flex; align-items: center; gap: 7px; color: var(--text-secondary); font-size: 13px; }
 .composer-wrap { flex: 0 0 auto; padding: calc(8px * var(--ui-space-scale)) calc(16px * var(--ui-space-scale)) calc(10px * var(--ui-space-scale)); border-top: 1px solid var(--glass-border); background: var(--workbench-bg); }
+.diff-stack-wrap { flex: 0 0 auto; width: min(920px, 100%); margin: 0 auto; padding: 0 calc(16px * var(--ui-space-scale)) 8px; }
 .right-shell { position: relative; min-width: 0; min-height: 0; overflow: hidden; }
 .pane-resizer { position: absolute; top: 0; right: 0; z-index: 8; width: 6px; height: 100%; cursor: col-resize; }
 .pane-resizer--left { right: auto; left: 0; }

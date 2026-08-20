@@ -210,3 +210,43 @@ export interface Commit {
   sha: string
   commit: { message: string; author: { name: string; date: string } }
 }
+
+export interface SkillSummary {
+  name: string
+  description: string
+  path: string
+  scope?: 'personal' | 'system' | string
+  icon?: string
+}
+
+export interface SkillDetail extends SkillSummary {
+  content: string
+  truncated: boolean
+}
+
+export interface ComposerAddAction {
+  key: string
+  label: string
+  description?: string
+  icon: string
+}
+
+export interface ComposerPluginItem {
+  key: string
+  name: string
+  description: string
+  icon: string
+  iconBg?: string
+  iconColor?: string
+}
+
+export interface DiffFileBrief {
+  path: string
+  before?: string | null
+  after?: string | null
+  additions?: number
+  deletions?: number
+  // legacy compat: when before/after not supplied, lines/content fallback is used
+  lines?: Array<{ num: number; text: string; type?: 'add' | 'del' | 'context' }>
+  content?: string
+}

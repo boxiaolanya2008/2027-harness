@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img">
+  <title>Super-Agent Mark</title>
+  <!-- Single-color mark for favicon / tray: no background, works on light/dark -->
+  <ellipse cx="32" cy="32" rx="23" ry="18.5" fill="none" stroke="#0b1220" stroke-width="2.6" opacity="0.9"/>
+  <ellipse cx="32" cy="32" rx="23" ry="18.5" fill="none" stroke="#2563eb" stroke-width="2.6" opacity="0.95" style="mix-blend-mode: multiply"/>
+  <path d="M20 20 L14 20 L14 44 L20 44" fill="none" stroke="#0b1220" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M44 20 L50 20 L50 44 L44 44" fill="none" stroke="#0b1220" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <g transform="translate(44,17)">
+    <circle r="7.5" fill="#0b1220"/>
+    <path d="M -2.8 0.6 L -0.4 2.9 L 3.4 -2.6" fill="none" stroke="white" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
