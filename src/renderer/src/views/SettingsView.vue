@@ -127,9 +127,6 @@ function handleViewLicense() {
     </div>
 
     <div class="settings-header">
-      <button class="collapse-btn" :class="{ collapsed: sidebarCollapsed }" title="收起侧边栏" @click="sidebarCollapsed = !sidebarCollapsed">
-        <Icon :icon="sidebarCollapsed ? 'mdi:chevron-right' : 'mdi:chevron-left'" width="16" />
-      </button>
       <button class="back-btn" title="返回上一页" @click="router.back()"><Icon icon="mdi:chevron-left" width="18" /></button>
       <div class="search-wrap">
         <Icon icon="mdi:magnify" width="16" class="search-icon" />
