@@ -102,9 +102,6 @@ function reasoningLabel(v: ReasoningEffort) {
   right: 0;
   bottom: calc(100% + 8px);
   z-index: 18;
-  display: flex;
-  gap: 6px;
-  align-items: flex-start;
 }
 .model-popover {
   width: 230px;
@@ -116,6 +113,7 @@ function reasoningLabel(v: ReasoningEffort) {
   display: flex;
   flex-direction: column;
   gap: 1px;
+  position: relative;
 }
 .model-row {
   display: flex;
@@ -156,6 +154,8 @@ function reasoningLabel(v: ReasoningEffort) {
 }
 
 .submenu {
+  position: absolute;
+  left: calc(100% + 6px);
   width: 118px;
   padding: 4px;
   border: 1px solid var(--glass-border);
@@ -166,6 +166,8 @@ function reasoningLabel(v: ReasoningEffort) {
   flex-direction: column;
   gap: 1px;
 }
+.submenu--model { top: 0; }
+.submenu--reasoning { top: 32px; }
 .submenu-row {
   display: flex;
   align-items: center;
