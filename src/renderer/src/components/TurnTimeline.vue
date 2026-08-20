@@ -4,6 +4,7 @@ import type { AssistantTurnEvent, ToolCall, ToolCallEvent, ToolResultEvent } fro
 import MarkdownView from './MarkdownView.vue'
 import ThinkingBlock from './ThinkingBlock.vue'
 import ToolActivityRow from './ToolActivityRow.vue'
+import ToolCommandGroup from './ToolCommandGroup.vue'
 
 const props = withDefaults(defineProps<{
   events: AssistantTurnEvent[]
@@ -101,10 +102,32 @@ function showError(event: Extract<AssistantTurnEvent, { type: 'error' }>) {
 function showOrphanResult(event: ToolResultEvent) {
   return isErrorResult(event) || event.name === 'run_command'
 }
+
+const runCommandGroup = computed(() => {
+  const items = orderedEvents.value
+    .filter((e): e is ToolCallEvent => e.type === 'tool_call' && (e as ToolCallEvent).name === 'run_command')
+    .map(ev => {
+      const args = ev.args || {}
+      let cmd = ''
+      try {
+        if (args && typeof (args as any).command === 'string') cmd = String((args as any).command)
+        else if (ev.rawArgs) {
+          const parsed = JSON.parse(ev.rawArgs)
+          cmd = String(parsed.command || ev.rawArgs)
+        } else cmd = ev.rawArgs
+      } catch { cmd = ev.rawArgs || '' }
+      const res = latestResultsByCallId.value.get(ev.callId)
+      const status = res?.status === 'failed' ? 'error' as const : res?.status === 'succeeded' ? 'done' as const : 'running' as const
+      return { id: ev.callId, command: cmd.slice(0, 180), status }
+    })
+  return items
+})
+const hasRunCommandGroup = computed(() => runCommandGroup.value.length > 1)
 </script>
 
 <template>
   <div class="turn-timeline">
+    <ToolCommandGroup v-if="hasRunCommandGroup" :commands="runCommandGroup" />
     <template v-for="(event, index) in orderedEvents" :key="`${event.type}-${event.seq}`">
       <MarkdownView
         v-if="event.type === 'assistant_text'"
@@ -117,12 +140,12 @@ function showOrphanResult(event: ToolResultEvent) {
         :streaming="isLive(event, index)"
       />
       <ToolActivityRow
-        v-else-if="event.type === 'tool_call'"
-        :call="callFor(event)"
-        :raw-args="event.rawArgs"
-        :result="resultFor(event)"
-        :live-output="liveOutputFor(event)"
-        :file-edit-preview="event.fileEditPreview || event.writePreview"
+        v-else-if="event.type === 'tool_call' && !(hasRunCommandGroup && (event as ToolCallEvent).name === 'run_command')"
+        :call="callFor(event as ToolCallEvent)"
+        :raw-args="(event as ToolCallEvent).rawArgs"
+        :result="resultFor(event as ToolCallEvent)"
+        :live-output="liveOutputFor(event as ToolCallEvent)"
+        :file-edit-preview="(event as ToolCallEvent).fileEditPreview || (event as ToolCallEvent).writePreview"
       />
       <div v-else-if="event.type === 'status' && showStatus(event)" class="turn-status" :class="`turn-status--${event.state}`">
         {{ event.error || (event.state === 'aborted' ? '已取消' : '生成失败') }}

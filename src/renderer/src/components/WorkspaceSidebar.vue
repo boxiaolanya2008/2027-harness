@@ -107,6 +107,13 @@ function shortTitle(c: Conversation) {
       </div>
     </section>
 
+    <footer class="sidebar-custom-entry">
+      <button type="button" class="custom-btn" @click="router.push('/settings')">
+        <Icon icon="mdi:cog-outline" width="16" />
+        <span>custom</span>
+      </button>
+      <button type="button" class="help-btn" title="帮助"><Icon icon="mdi:help-circle-outline" width="16" /></button>
+    </footer>
   </section>
 </template>
 
@@ -168,9 +175,9 @@ function shortTitle(c: Conversation) {
 }
 .custom-btn {
   flex: 1; display: inline-flex; align-items: center; gap: 8px; padding: 8px 10px;
-  border: 0; border-radius: 8px; background: #e8ecef; color: #475569; font-size: 13px; cursor: pointer;
+  border: 0; border-radius: 8px; background: transparent; color: #475569; font-size: 13px; cursor: pointer;
 }
-.custom-btn:hover { background: #e2e8f0; color: #0f172a; }
+.custom-btn:hover { background: #e8ecef; color: #0f172a; }
 .help-btn {
   display: grid; place-items: center; width: 26px; height: 26px; flex: 0 0 auto;
   border: 1px solid #e2e8f0; border-radius: 50%; background: #fff; color: #94a3b8; cursor: pointer;
