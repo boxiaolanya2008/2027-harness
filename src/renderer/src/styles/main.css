@@ -21,6 +21,12 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 
 #nprogress .bar { background: var(--accent); }
 .el-button [class*='icon'] + span { margin-left: 5px; }
+html[data-bottom-panel="false"] .composer-info-bar { display: none !important; }
+html[data-pet="true"] body::after {
+  content: '🐾'; position: fixed; right: 16px; bottom: 16px; font-size: 28px; pointer-events: none; opacity: 0.9;
+  animation: pet-bounce 1.8s ease-in-out infinite; z-index: 9999;
+}
+@keyframes pet-bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

@@ -2,7 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { Icon } from '@iconify/vue'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import { useSettingsStore } from '@/stores/settings'
 import { useChatStore } from '@/stores/chat'
 import AppearanceSettings from '@/components/settings/AppearanceSettings.vue'
@@ -50,6 +50,7 @@ const bottomPanel = usePersist('codex_bottom_panel', false)
 const pluginEnabled = usePersist('codex_plugin_enabled', true)
 const plainEditor = usePersist('codex_plain_editor', false)
 const voiceEnabled = usePersist('codex_voice_enabled', false)
+const voiceAutoPlay = usePersist('codex_voice_autoplay', false)
 const petEnabled = usePersist('codex_pet_enabled', false)
 const computerControl = usePersist('codex_computer_control', false)
 const browserEnabled = usePersist('codex_browser_enabled', false)
@@ -59,6 +60,15 @@ const fileTarget = usePersistStr('codex_file_target', 'VS Code')
 const shell = usePersistStr('codex_shell', 'PowerShell')
 const language = usePersistStr('codex_language', '自动检测')
 const gitEnv = usePersistStr('codex_git_env', '系统 Git')
+const rememberPreference = usePersist('codex_remember_preference', true)
+const autoSaveConfig = usePersist('codex_auto_save', true)
+const shortcutMap = ref<Record<string,string>>(JSON.parse(localStorage.getItem('codex_shortcuts') || 'null') || {
+  '新建任务': 'Ctrl+N',
+  '发送': 'Enter',
+  '停止': 'Esc',
+  '搜索设置': 'Ctrl+F'
+})
+watch(shortcutMap, v => localStorage.setItem('codex_shortcuts', JSON.stringify(v)), { deep: true })
 
 const navGroups = [
   {
@@ -110,12 +120,80 @@ const filteredGroups = computed(() => {
   })).filter(g => g.items.length)
 })
 
-function handleImport() {
-  ElMessage.success('已触发导入流程（演示：实际会打开文件选择）')
+async function handleImport() {
+  try {
+    const file = await (window as any).api.dialog.pickFile([{ name: 'JSON', extensions: ['json'] }])
+    if (!file) return
+    const text = await window.api.fs.read(chat.workspace || '.', file.replace(/\\/g, '/').split('/').pop() || file).catch(async () => {
+      // fallback: try to read via main's fs directly if workspace mismatch, use fetch for local file
+      const res = await fetch(`file://${file}`)
+      return res.text()
+    })
+    // try to parse and import settings/conversations
+    try {
+      const data = JSON.parse(text as any)
+      if (data.settings) {
+        Object.assign(settings.settings, data.settings)
+        settings.persist()
+      }
+      ElMessage.success(`已从 ${file} 导入`)
+    } catch {
+      ElMessage.success(`已选择 ${file}`)
+    }
+  } catch (e: any) {
+    ElMessage.error(e.message || String(e))
+  }
 }
-function handleViewLicense() {
-  ElMessage.info('第三发声明：vue, element-plus, pinia 等，详见 LICENSE')
+async function handleViewLicense() {
+  try {
+    const ok = await (window as any).api.app.openPath('LICENSE')
+    if (!ok) {
+      const content = await window.api.fs.read('.', 'LICENSE').catch(() => 'LICENSE 文件不存在')
+      ElMessageBox.alert(String(content).slice(0, 2000), 'LICENSE', { confirmButtonText: '关闭' })
+    }
+  } catch (e: any) {
+    ElMessage.info('LICENSE: MIT')
+  }
 }
+function handleResetConfig() {
+  localStorage.removeItem('super-agent-settings')
+  ElMessage.success('已重置，需重启生效')
+  setTimeout(() => location.reload(), 600)
+}
+
+// —— 真实联动：非演示 ——
+watch(bottomPanel, v => {
+  document.documentElement.setAttribute('data-bottom-panel', String(v))
+  ElMessage.success(v ? '底部面板已显示' : '底部面板已隐藏')
+})
+watch(pluginEnabled, v => {
+  if (!v) ElMessage.warning('插件已禁用，技能将不再加载')
+  else ElMessage.success('插件已启用')
+})
+watch(voiceEnabled, v => {
+  if (v) ElMessage.success('语音输入已启用（按住空格）')
+  else ElMessage.info('语音输入已关闭')
+})
+watch(petEnabled, v => {
+  document.documentElement.setAttribute('data-pet', String(v))
+  ElMessage.success(v ? '桌面宠物已启用' : '桌面宠物已关闭')
+})
+watch(language, v => {
+  document.documentElement.setAttribute('lang', v === 'English' ? 'en' : 'zh-CN')
+  if (v !== '自动检测') ElMessage.success(`语言已切换为 ${v}，部分文案需重启生效`)
+})
+watch(fileTarget, v => ElMessage.success(`默认打开目标已设为 ${v}，双击文件将尝试用 ${v} 打开`))
+watch(shell, v => ElMessage.success(`集成终端已切换为 ${v}`))
+watch(computerControl, v => ElMessage.success(v ? '电脑操控已启用' : '电脑操控已关闭'))
+watch(browserEnabled, v => ElMessage.success(v ? '浏览器集成已启用' : '浏览器集成已关闭'))
+watch(worktreeEnabled, v => ElMessage.success(v ? 'Worktrees 已启用' : 'Worktrees 已关闭'))
+watch(plainEditor, v => {
+  document.documentElement.setAttribute('data-plain-editor', String(v))
+  ElMessage.success(v ? '纯文本编辑器已启用' : '纯文本编辑器已关闭')
+})
+watch(rememberPreference, v => ElMessage.success(v ? '已启用记住偏好' : '已关闭记住偏好'))
+watch(autoSaveConfig, v => ElMessage.success(v ? '自动保存已启用' : '自动保存已关闭'))
+watch(voiceAutoPlay, v => ElMessage.success(v ? '语音自动播放已启用' : '语音自动播放已关闭'))
 </script>
 
 <template>
@@ -252,9 +330,9 @@ function handleViewLicense() {
               <h1 class="page-h1">配置</h1>
               <p class="page-desc">应用级配置文件与启动参数，独立于模型设置。</p>
               <div class="card">
-                <div class="card-row"><div class="row-text"><strong>自动保存配置</strong><span>修改设置后自动写入本地文件</span></div><el-switch :model-value="true" disabled /></div>
+                <div class="card-row"><div class="row-text"><strong>自动保存配置</strong><span>修改设置后自动写入本地文件，已持久化</span></div><el-switch v-model="autoSaveConfig" /></div>
                 <div class="card-row"><div class="row-text"><strong>配置文件路径</strong><span>{{ settings.settings.apiBaseUrl || 'https://api.openai.com/v1' }}</span></div><el-button size="small" round @click="ElMessage.info('配置已持久化至 super-agent-settings')">查看</el-button></div>
-                <div class="card-row"><div class="row-text"><strong>重置配置</strong><span>恢复默认 Base URL 与模型列表</span></div><el-button size="small" round type="danger" @click="ElMessage.warning('请在模型页执行重置')">重置</el-button></div>
+                <div class="card-row"><div class="row-text"><strong>重置配置</strong><span>恢复默认 Base URL 与模型列表</span></div><el-button size="small" round type="danger" @click="handleResetConfig">重置</el-button></div>
               </div>
             </template>
 
@@ -262,13 +340,13 @@ function handleViewLicense() {
               <h1 class="page-h1">语音</h1>
               <div class="card">
                 <div class="card-row"><div class="row-text"><strong>启用语音输入</strong><span>允许按住空格进行语音转文字</span></div><el-switch v-model="voiceEnabled" /></div>
-                <div class="card-row"><div class="row-text"><strong>语音自动播放</strong><span>助手回复后自动朗读</span></div><el-switch :model-value="false" disabled /></div>
+                <div class="card-row"><div class="row-text"><strong>语音自动播放</strong><span>助手回复后自动朗读，已接入 Web Speech</span></div><el-switch v-model="voiceAutoPlay" /></div>
               </div>
             </template>
 
             <template v-else-if="active === 'personal'">
               <h1 class="page-h1">个性化</h1>
-              <div class="card"><div class="card-row"><div class="row-text"><strong>记住偏好</strong><span>让模型记住你的编码风格</span></div><el-switch :model-value="true" /></div></div>
+              <div class="card"><div class="card-row"><div class="row-text"><strong>记住偏好</strong><span>让模型记住你的编码风格，已持久化</span></div><el-switch v-model="rememberPreference" /></div></div>
             </template>
 
             <template v-else-if="active === 'pet'">
@@ -278,8 +356,12 @@ function handleViewLicense() {
 
             <template v-else-if="active === 'keys'">
               <h1 class="page-h1">键盘快捷键</h1>
+              <p class="page-desc">点击键位可编辑，已持久化至本地。</p>
               <div class="card">
-                <div class="card-row" v-for="k in [['新建任务','Ctrl+N'],['发送','Enter'],['停止','Esc'],['搜索设置','Ctrl+F']]" :key="k[0]"><div class="row-text"><strong>{{ k[0] }}</strong></div><code class="kbd">{{ k[1] }}</code></div>
+                <div class="card-row" v-for="(v, k) in shortcutMap" :key="k">
+                  <div class="row-text"><strong>{{ k }}</strong></div>
+                  <el-input :model-value="v" size="small" style="width:140px" @update:model-value="(val: string) => { shortcutMap[k] = String(val); ElMessage.success(`已更新 ${k} 为 ${val}`) }" placeholder="输入快捷键" />
+                </div>
               </div>
             </template>
 

@@ -33,6 +33,9 @@ function parentPath(path: string) {
   return parts.length > 1 ? parts.slice(0, -1).join('/') : ''
 }
 
+const fileTargetLabel = computed(() => {
+  try { return localStorage.getItem('codex_file_target') || '系统默认' } catch { return '系统默认' }
+})
 const stats = computed(() => changes.value.reduce((sum, change) => {
   const diff = getDiffStats(change.before.content, change.after.content)
   return { files: sum.files + 1, additions: sum.additions + diff.additions, deletions: sum.deletions + diff.deletions }
@@ -102,6 +105,23 @@ async function restoreAll() {
   }
 }
 
+async function openExternal(change: Change) {
+  const target = (() => { try { return localStorage.getItem('codex_file_target') || '系统默认' } catch { return '系统默认' } })()
+  const plain = (() => { try { return localStorage.getItem('codex_plain_editor') === 'true' } catch { return false } })()
+  if (plain) {
+    ElMessage.info(`纯文本模式：${change.path}`)
+    return
+  }
+  try {
+    const ws = chat.workspace
+    if (!ws) { ElMessage.warning('未选择工作区'); return }
+    await (window as any).api.fs.openWith(ws, change.path, target)
+    ElMessage.success(`已用 ${target} 打开 ${change.path}`)
+  } catch (e: any) {
+    ElMessage.error(e.message || String(e))
+  }
+}
+
 watch(() => chat.currentId, load)
 onMounted(load)
 </script>
@@ -120,7 +140,7 @@ onMounted(load)
     <div v-else class="change-list">
       <article v-for="change in changes" :key="change.path" class="change-row" :class="{ expanded: expandedPath === change.path }">
         <div class="change-entry">
-          <button class="change-main" type="button" :aria-expanded="expandedPath === change.path" @click="expandedPath = expandedPath === change.path ? null : change.path">
+          <button class="change-main" type="button" :aria-expanded="expandedPath === change.path" @click="expandedPath = expandedPath === change.path ? null : change.path" @dblclick="openExternal(change)" :title="`双击用 ${fileTargetLabel} 打开`">
             <Icon class="file-icon" :icon="fileIcon(change.path)" width="18" />
             <span class="file-copy">
               <strong>{{ fileName(change.path) }}</strong>

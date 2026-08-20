@@ -50,8 +50,24 @@ export async function execTool(
       return items.map((i: { type: string; path: string }) => `${i.type === 'dir' ? '[d]' : '[f]'} ${i.path}`).join('\n')
     }
     case 'run_command': {
+      const shellPref = (() => {
+        try { return localStorage.getItem('codex_shell') || '' } catch { return '' }
+      })()
       const isWin = navigator.userAgent.includes('Windows')
-      const [cmd, rest] = isWin ? ['cmd', ['/c', args.command]] : ['sh', ['-c', args.command]]
+      let cmd: string
+      let rest: string[]
+      if (shellPref === 'PowerShell') {
+        cmd = isWin ? 'powershell.exe' : 'pwsh'
+        rest = ['-NoProfile', '-Command', args.command]
+      } else if (shellPref === 'Git Bash') {
+        cmd = 'bash'
+        rest = ['-c', args.command]
+      } else if (shellPref === 'CMD') {
+        cmd = 'cmd'
+        rest = ['/c', args.command]
+      } else {
+        ;[cmd, rest] = isWin ? ['cmd', ['/c', args.command]] : ['sh', ['-c', args.command]]
+      }
       const out = await window.api.shell.run(workspace, cmd, rest, context)
       return `exit=${out.code}\n${out.output || '(无输出)'}`
     }

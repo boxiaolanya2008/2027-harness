@@ -83,6 +83,37 @@ const inputRef = ref<any>(null)
 
 // Codex-style approval mode, persisted via settings store
 const approvalMode = computed(() => (settings.settings.approvalMode as import('@/types').ApprovalMode) || 'help')
+
+const isVoiceEnabled = computed(() => {
+  try { return localStorage.getItem('codex_voice_enabled') === 'true' } catch { return false }
+})
+const isRecording = ref(false)
+let speechRecognition: any = null
+function toggleVoice() {
+  if (!isVoiceEnabled.value) return
+  const SR: any = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition
+  if (!SR) {
+    const { ElMessage } = require('element-plus')
+    ElMessage.warning('当前浏览器不支持语音输入')
+    return
+  }
+  if (isRecording.value && speechRecognition) {
+    try { speechRecognition.stop() } catch {}
+    isRecording.value = false
+    return
+  }
+  speechRecognition = new SR()
+  speechRecognition.lang = 'zh-CN'
+  speechRecognition.interimResults = false
+  speechRecognition.onstart = () => { isRecording.value = true }
+  speechRecognition.onend = () => { isRecording.value = false }
+  speechRecognition.onresult = (e: any) => {
+    const text = e.results?.[0]?.[0]?.transcript
+    if (text) value.value = value.value ? value.value + ' ' + text : text
+  }
+  speechRecognition.onerror = () => { isRecording.value = false }
+  try { speechRecognition.start() } catch {}
+}
 const approvalLabel = computed(() => {
   if (approvalMode.value === 'request') return '请求批准'
   if (approvalMode.value === 'full') return '完全访问'
@@ -402,6 +433,16 @@ function submit() {
         <button class="plus-btn" type="button" :class="{ active: showAddMenu }" title="添加" @click.stop="toggleAddMenu">
           <Icon icon="mdi:plus" width="18" />
         </button>
+        <button
+          v-if="isVoiceEnabled"
+          type="button"
+          class="voice-btn"
+          :class="{ recording: isRecording }"
+          :title="isRecording ? '停止录音' : '语音输入（按住空格）'"
+          @click="toggleVoice"
+        >
+          <Icon :icon="isRecording ? 'mdi:stop' : 'mdi:microphone-outline'" width="16" />
+        </button>
         <div class="approve-wrap">
           <button
             class="approve-btn"
@@ -542,6 +583,18 @@ function submit() {
   color: var(--text-primary);
   border-color: color-mix(in srgb, var(--text-faint) 50%, transparent);
 }
+.voice-btn {
+  display: grid; place-items: center; width: 30px; height: 30px;
+  border: 1px solid color-mix(in srgb, var(--glass-border) 65%, transparent);
+  border-radius: 50%; background: color-mix(in srgb, var(--surface-bg) 70%, transparent);
+  color: var(--text-secondary); cursor: pointer;
+}
+.voice-btn:hover { background: color-mix(in srgb, var(--hover-bg) 80%, transparent); color: var(--text-primary); }
+.voice-btn.recording {
+  background: #fee2e2; color: #dc2626; border-color: #fecaca;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.08); } }
 
 .approve-btn {
   display: inline-flex;

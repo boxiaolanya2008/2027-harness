@@ -8,6 +8,12 @@ let lastLoadedAt = 0
 let bound = false
 
 async function refresh(force = false) {
+  try {
+    if (localStorage.getItem('codex_plugin_enabled') === 'false') {
+      skills.value = []
+      return
+    }
+  } catch {}
   const workspace = workspaceRef.value
   if (!workspace) {
     skills.value = []
@@ -24,6 +30,10 @@ async function refresh(force = false) {
   } finally {
     loading.value = false
   }
+}
+
+function isPluginEnabled(): boolean {
+  try { return localStorage.getItem('codex_plugin_enabled') !== 'false' } catch { return true }
 }
 
 function bindWorkspace(source: () => string | null | undefined) {
@@ -56,6 +66,7 @@ export function useSkills() {
 }
 
 export async function resolveSkillContext(text: string, workspace: string | null): Promise<{ skillContext: string; slashName: string | null; atNames: string[] }> {
+  if (!isPluginEnabled()) return { skillContext: '', slashName: null, atNames: [] }
   const { parseSlash, parseAtMentions } = await import('@/utils/skillParser')
   const slash = parseSlash(text)
   const atNames = parseAtMentions(text)

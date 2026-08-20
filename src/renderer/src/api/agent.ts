@@ -1,5 +1,6 @@
 import { streamTurn, type ChatMsg, type ProviderToolCall, type ChatContentPart, type RequestConfig } from './openai'
 import { TOOLS, SYSTEM, execTool } from './agent-tools'
+import type { ToolDef } from './openai'
 import type { ApprovalMode, AssistantTurnEvent, AssistantTurnEventInput, FileEditPreview, Settings, StreamState } from '@/types'
 import { assessShellCommand } from '@/utils/shellSafety'
 import { formatBlockedMessage, formatDeniedMessage, guardShellCommand } from '@/utils/shellGuard'
@@ -26,13 +27,32 @@ function getApprovalMode(): ApprovalMode {
 function isWriteTool(name: string) {
   return name === 'write_file' || name === 'incrementally_edit'
 }
+function isComputerControlEnabled(): boolean {
+  try { return localStorage.getItem('codex_computer_control') !== 'false' } catch { return true }
+}
+function isBrowserEnabled(): boolean {
+  try { return localStorage.getItem('codex_browser_enabled') !== 'false' } catch { return true }
+}
+function isDefaultPermissionEnabled(): boolean {
+  try { return localStorage.getItem('codex_default_permission') !== 'false' } catch { return true }
+}
+function getFilteredTools(): ToolDef[] {
+  let tools = [...TOOLS]
+  if (!isComputerControlEnabled()) {
+    tools = tools.filter(t => !['run_command', 'git_commit', 'git_new_branch', 'git_push', 'git_status', 'git_diff'].includes(t.function.name))
+  }
+  if (!isBrowserEnabled()) {
+    // currently no dedicated browser tool, keep as is
+  }
+  return tools
+}
 
 async function requestToolApproval(toolName: string, toolArgs: Record<string, unknown>): Promise<boolean> {
   const mode = getApprovalMode()
   if (mode === 'full') return true
-  // help 模式：仅写入文件自动批准，其余均需确认（符合用户所述“自动批准只批准写入文件相关的”）
-  // request 模式：所有工具均需确认
-  if (mode === 'help' && isWriteTool(toolName)) return true
+  const defaultPerm = isDefaultPermissionEnabled()
+  // help 模式：仅当默认权限开启时，写入类自动批准；否则一律需确认
+  if (mode === 'help' && isWriteTool(toolName) && defaultPerm) return true
 
   const summary = (() => {
     const a = toolArgs as Record<string, unknown>
@@ -227,7 +247,7 @@ export async function runAgent(
     let reasoning = ''
     let providerState: StreamState = 'streaming'
 
-    for await (const streamedEvent of streamTurn(settings, apiKey, messages, TOOLS, signal, makeInternalCallId, requestConfig)) {
+    for await (const streamedEvent of streamTurn(settings, apiKey, messages, getFilteredTools(), signal, makeInternalCallId, requestConfig)) {
       // A provider's completed status only ends this model request. The full agent run can still have tools to run.
       if (streamedEvent.type === 'status') {
         providerState = streamedEvent.state

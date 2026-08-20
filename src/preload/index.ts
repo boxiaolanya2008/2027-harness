@@ -125,7 +125,12 @@ const api = {
     setGithubToken: (token: string) => ipcRenderer.invoke('settings:setGithubToken', token)
   },
   dialog: {
-    pickDir: () => ipcRenderer.invoke('dialog:pickDir')
+    pickDir: () => ipcRenderer.invoke('dialog:pickDir'),
+    pickFile: (filters?: { name: string; extensions: string[] }[]) => ipcRenderer.invoke('dialog:pickFile', { filters }),
+    openPath: (p: string) => ipcRenderer.invoke('app:openPath', p)
+  },
+  app: {
+    openPath: (p: string) => ipcRenderer.invoke('app:openPath', p)
   },
   githubAuth: {
     detectLocal: (): Promise<{ connected: boolean; imported: boolean; login: string; reason?: string }> => ipcRenderer.invoke('github:detectLocalAuth')
@@ -178,7 +183,8 @@ const api = {
     ): Promise<FileChangeSnapshot> => ipcRenderer.invoke(
       'fs:incrementallyEdit', workspace, rel, oldString, newString, replaceAll, context
     ),
-    list: (workspace: string, rel?: string) => ipcRenderer.invoke('fs:list', workspace, rel)
+    list: (workspace: string, rel?: string) => ipcRenderer.invoke('fs:list', workspace, rel),
+    openWith: (workspace: string, rel: string, target: string) => ipcRenderer.invoke('fs:openWith', workspace, rel, target)
   },
   changes: {
     list: (filter?: ChangesListRequest): Promise<AggregatedChange[]> => ipcRenderer.invoke('changes:list', filter),

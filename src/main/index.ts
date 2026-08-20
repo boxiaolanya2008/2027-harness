@@ -4,7 +4,7 @@ import { promisify } from 'node:util'
 import { join } from 'node:path'
 import { getSecret, setSecret } from './security'
 import { parseGitLog, parseGithubRemote, runGit, runGitStreaming } from './ipc/git'
-import { incrementallyEditFileIn, readFileIn, writeFileIn, listDir, snapshotWorkspace, type FileState } from './ipc/fs'
+import { confine, incrementallyEditFileIn, readFileIn, writeFileIn, listDir, snapshotWorkspace, type FileState } from './ipc/fs'
 import { runCommand } from './ipc/shell'
 import { gh, ghPaginate } from './ipc/github'
 import { StateRepository } from './state/repository'
@@ -93,6 +93,15 @@ function registerIpc() {
   ipcMain.handle('dialog:pickDir', async () => {
     const r = await dialog.showOpenDialog({ properties: ['openDirectory'] })
     return r.canceled ? null : r.filePaths[0]
+  })
+  ipcMain.handle('dialog:pickFile', async (_e, opts?: { filters?: { name: string; extensions: string[] }[] }) => {
+    const r = await dialog.showOpenDialog({ properties: ['openFile'], filters: opts?.filters || [{ name: 'All', extensions: ['*'] }] })
+    return r.canceled ? null : r.filePaths[0]
+  })
+  ipcMain.handle('app:openPath', async (_e, p: string) => {
+    if (!p) return false
+    await shell.openPath(p)
+    return true
   })
 
   ipcMain.handle('conversations:list', () => state.listConversations())
@@ -212,6 +221,22 @@ function registerIpc() {
     }
   )
   ipcMain.handle('fs:list', (_e, workspace: string, rel?: string) => listDir(workspace, rel || '.'))
+  ipcMain.handle('fs:openWith', async (_e, workspace: string, rel: string, target: string) => {
+    const filePath = confine(workspace, rel)
+    const openTarget = String(target || '')
+    try {
+      if (openTarget === 'VS Code') {
+        await exec('code', [filePath] as any, { windowsHide: true } as any)
+        return true
+      }
+      if (openTarget === 'Cursor') {
+        await exec('cursor', [filePath] as any, { windowsHide: true } as any)
+        return true
+      }
+    } catch {}
+    await shell.openPath(filePath)
+    return true
+  })
 
   ipcMain.handle('changes:list', (_e, filter?: unknown) => changes.listChanges(filter))
   ipcMain.handle('changes:restoreFile', (_e, request: unknown) => changes.restoreFile(request))
