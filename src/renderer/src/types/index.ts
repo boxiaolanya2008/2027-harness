@@ -1,5 +1,5 @@
 export type ComposerMode = 'coding' | 'thinking' | 'security'
-export type ReasoningEffort = 'low' | 'medium' | 'high'
+export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh'
 export type ApprovalMode = 'request' | 'help' | 'full'
 
 export interface ModeModelPreset {

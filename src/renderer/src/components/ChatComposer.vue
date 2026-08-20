@@ -56,6 +56,7 @@ const reasoningEffort = computed({
 })
 const reasoningLabel = computed(() => {
   const v = reasoningEffort.value
+  if (v === 'xhigh') return '极高'
   if (v === 'high') return '高'
   if (v === 'low') return '低'
   return '中'
@@ -428,16 +429,17 @@ function submit() {
         <!-- 复刻图二：模型/推理强度触发器 + 弹出面板（仅布局） -->
         <div class="model-popover-wrap">
           <button class="model-pill-trigger" type="button" @click.stop="toggleModelPopover">
-            <Icon icon="mdi:loading" width="14" class="model-pill-icon" />
+            <Icon icon="mdi:atom" width="14" class="model-pill-icon" />
             <span class="model-pill-text" :title="effectiveModel">{{ effectiveModel || 'muse-spark-1.2-contr...' }}</span>
             <span class="model-pill-effort">{{ reasoningLabel }}</span>
           </button>
           <ModelReasoningPopover
             v-if="showModelPopover"
             :model="effectiveModel || 'muse-spark-1.2-contr...'"
-            :reasoning-label="reasoningLabel"
-            @select-model="showModelPopover = false"
-            @select-reasoning="showModelPopover = false"
+            :reasoning="reasoningEffort"
+            :model-options="modelOptions"
+            @update:model="val => { selectedModel = val; showModelPopover = false }"
+            @update:reasoning="val => { reasoningEffort = val as ReasoningEffort; showModelPopover = false }"
           />
           <!-- 保留隐藏的功能性选择器，供设置持久化（布局上不可见，仅保证数据链路） -->
           <el-select v-model="selectedModel" class="model-select--hidden" size="small" filterable allow-create>
@@ -597,7 +599,7 @@ function submit() {
   max-width: 220px;
 }
 .model-pill-trigger:hover { background: var(--hover-bg); color: var(--text-primary); }
-.model-pill-icon { flex: 0 0 auto; color: var(--text-faint); animation: spin 1.1s linear infinite; }
+.model-pill-icon { flex: 0 0 auto; color: var(--text-faint); }
 .model-pill-text {
   flex: 1;
   min-width: 0;

@@ -51,7 +51,7 @@ interface PendingToolCall {
 export interface RequestConfig {
   model?: string
   temperature?: number
-  reasoningEffort?: 'low' | 'medium' | 'high'
+  reasoningEffort?: 'low' | 'medium' | 'high' | 'xhigh'
 }
 
 export type InternalCallIdFactory = (providerCallId: string | undefined, index: number) => string

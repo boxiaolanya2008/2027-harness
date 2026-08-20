@@ -5,7 +5,7 @@ import type { ApprovalMode, ComposerMode, ModeModelPreset, ReasoningEffort, Requ
 const STORAGE_KEY = 'super-agent-settings'
 
 function validReasoningEffort(value: unknown): value is ReasoningEffort {
-  return value === 'low' || value === 'medium' || value === 'high'
+  return value === 'low' || value === 'medium' || value === 'high' || value === 'xhigh'
 }
 
 function normalizePreset(value: unknown): ModeModelPreset {
