@@ -7,6 +7,7 @@ import SkillAutocomplete from '@/components/SkillAutocomplete.vue'
 import ComposerAddMenu from '@/components/ComposerAddMenu.vue'
 import ApprovalMenu from '@/components/ApprovalMenu.vue'
 import ModelReasoningPopover from '@/components/ModelReasoningPopover.vue'
+import ModeSelector from '@/components/ModeSelector.vue'
 import { useSkills } from '@/api/skills'
 import { activeAtMention, isSlashTrigger } from '@/utils/skillParser'
 
@@ -418,12 +419,7 @@ function submit() {
             @update:model-value="setApprovalMode"
           />
         </div>
-        <span class="workspace-meta--new" :title="workspaceName"><Icon icon="mdi:folder-open-outline" width="14" /> {{ workspaceName }}</span>
-        <el-select v-model="mode" class="mode-select mode-select--compact" size="small">
-          <el-option value="coding" label="编码" />
-          <el-option value="thinking" label="思考" />
-          <el-option value="security" label="安全" />
-        </el-select>
+        <ModeSelector v-model="mode" />
       </div>
       <div class="footer-right">
         <!-- 复刻图二：模型/推理强度触发器 + 弹出面板（仅布局） -->
@@ -462,12 +458,13 @@ function submit() {
   width: min(920px, 100%);
   margin: 0 auto;
   overflow: visible;
-  border: 1px solid var(--glass-border);
+  border: 1px solid color-mix(in srgb, var(--glass-border) 70%, transparent);
   border-radius: 16px;
-  background: var(--surface-bg);
-  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  background: color-mix(in srgb, var(--surface-bg) 92%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
 }
-.composer:focus-within { border-color: var(--glass-border); box-shadow: 0 4px 16px rgba(0,0,0,0.06); }
+.composer:focus-within { border-color: color-mix(in srgb, var(--glass-border) 80%, transparent); box-shadow: 0 6px 24px rgba(0,0,0,0.08); }
 
 /* 输入区 */
 .composer-input-area {
@@ -533,16 +530,17 @@ function submit() {
   place-items: center;
   width: 30px;
   height: 30px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid color-mix(in srgb, var(--glass-border) 65%, transparent);
   border-radius: 50%;
-  background: var(--surface-bg);
+  background: color-mix(in srgb, var(--surface-bg) 70%, transparent);
+  backdrop-filter: blur(6px);
   color: var(--text-secondary);
   cursor: pointer;
 }
 .plus-btn:hover, .plus-btn.active {
-  background: var(--hover-bg);
+  background: color-mix(in srgb, var(--hover-bg) 80%, transparent);
   color: var(--text-primary);
-  border-color: var(--text-faint);
+  border-color: color-mix(in srgb, var(--text-faint) 50%, transparent);
 }
 
 .approve-btn {
@@ -550,55 +548,47 @@ function submit() {
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid color-mix(in srgb, var(--glass-border) 65%, transparent);
   border-radius: 999px;
-  background: var(--surface-bg);
+  background: color-mix(in srgb, var(--surface-bg) 70%, transparent);
+  backdrop-filter: blur(6px);
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
 }
-.approve-btn:hover { background: var(--hover-bg); color: var(--text-primary); }
+.approve-btn:hover { background: color-mix(in srgb, var(--hover-bg) 80%, transparent); color: var(--text-primary); }
 .approve-wrap { position: relative; display: inline-flex; }
 .approve-btn--full {
   color: #e65100;
-  border-color: rgba(230, 81, 0, 0.3);
-  background: rgba(230, 81, 0, 0.08);
+  border-color: rgba(230, 81, 0, 0.28);
+  background: color-mix(in srgb, rgba(230,81,0,0.08) 80%, transparent);
+  backdrop-filter: blur(6px);
 }
 .approve-btn--full:hover {
-  background: rgba(230, 81, 0, 0.12);
+  background: color-mix(in srgb, rgba(230,81,0,0.12) 85%, transparent);
   color: #bf360c;
 }
 .approve-btn--request {
   color: var(--text-primary);
+  background: color-mix(in srgb, var(--surface-bg) 65%, transparent);
 }
 
-.workspace-meta--new {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  max-width: 140px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--text-faint);
-  font-size: 11px;
-}
-.mode-select--compact { width: 86px; }
 .model-popover-wrap { position: relative; display: inline-flex; align-items: center; }
 .model-pill-trigger {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid color-mix(in srgb, var(--glass-border) 65%, transparent);
   border-radius: 999px;
-  background: var(--panel-bg);
+  background: color-mix(in srgb, var(--panel-bg) 80%, transparent);
+  backdrop-filter: blur(6px);
   color: var(--text-secondary);
   font-size: 12px;
   cursor: pointer;
   max-width: 220px;
 }
-.model-pill-trigger:hover { background: var(--hover-bg); color: var(--text-primary); }
+.model-pill-trigger:hover { background: color-mix(in srgb, var(--hover-bg) 80%, transparent); color: var(--text-primary); }
 .model-pill-icon { flex: 0 0 auto; color: var(--text-faint); }
 .model-pill-text {
   flex: 1;
