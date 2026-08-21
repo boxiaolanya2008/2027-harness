@@ -1,5 +1,7 @@
 # Super-Agent
 
+中文 | [English](README_EN.md)
+
 2027 版 AI 编码代理桌面应用。Windows 下的 Electron 应用，主界面是 AI 对话控制台，能直接操作本地代码仓库和 GitHub——读文件、改代码、跑命令、提 PR，都能做。
 
 ## 特性
@@ -80,3 +82,7 @@ npm run dev
 
 - Agent 的 shell / git / fs 操作全部限定在工作区内，越界会被拒绝。
 - 图标离线注册，不依赖 Iconify CDN，可完全离线运行（模型请求除外）。
+
+## 共创者
+
+Super-Agent 由人类与多个 AI 编码代理协作开发，完整名单见 [CONTRIBUTORS.md](CONTRIBUTORS.md)。
