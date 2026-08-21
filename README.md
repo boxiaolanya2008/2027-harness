@@ -22,6 +22,8 @@ Electron + electron-vite + Vue 3 + TypeScript + Element Plus + Pinia + Vue Route
 npm install
 ```
 
+不想自己构建的话，直接到 [Releases](https://github.com/boxiaolanya2008/2027-harness/releases/latest) 下载 `Super-Agent Setup x.x.x.exe`（Windows x64 安装包），双击安装即可。
+
 ## Quick Start
 
 ```bash
