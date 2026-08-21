@@ -1,7 +1,18 @@
 #!/bin/sh
-# 每次提交自动追加 Copilot 共创者尾注；已有则跳过
+# 每次提交自动追加 AI 共创者尾注，已有的跳过
 COMMIT_MSG_FILE=$1
 
-grep -qi "^Co-authored-by: Copilot" "$COMMIT_MSG_FILE" && exit 0
+add_coauthor() {
+	name=$1
+	email=$2
+	grep -qi "^Co-authored-by: $name " "$COMMIT_MSG_FILE" && return
+	printf "\nCo-authored-by: %s <%s>" "$name" "$email" >> "$COMMIT_MSG_FILE"
+}
 
-printf "\nCo-authored-by: Copilot <198982749+Copilot@users.noreply.github.com>\n" >> "$COMMIT_MSG_FILE"
+add_coauthor "Copilot" "198982749+Copilot@users.noreply.github.com"
+add_coauthor "Claude" "noreply@anthropic.com"
+add_coauthor "Cursor" "noreply@cursor.com"
+
+printf "\n" >> "$COMMIT_MSG_FILE"
+
+exit 0
