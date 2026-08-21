@@ -12,6 +12,8 @@ add_coauthor() {
 add_coauthor "Copilot" "198982749+Copilot@users.noreply.github.com"
 add_coauthor "Claude" "noreply@anthropic.com"
 add_coauthor "Cursor" "noreply@cursor.com"
+add_coauthor "Gemini" "noreply@google.com"
+add_coauthor "Devin" "noreply@devin.ai"
 
 printf "\n" >> "$COMMIT_MSG_FILE"
 
