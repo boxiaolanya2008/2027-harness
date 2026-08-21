@@ -1,6 +1,6 @@
 {
   "name": "super-agent",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Super-Agent — 2027 版 AI 编码代理桌面应用，能操作本地代码与 GitHub",
   "main": "./out/main/index.js",
   "author": "Super-Agent",
