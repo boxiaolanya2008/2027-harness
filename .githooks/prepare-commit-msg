@@ -11,9 +11,9 @@ add_coauthor() {
 
 add_coauthor "Copilot" "198982749+Copilot@users.noreply.github.com"
 add_coauthor "Claude" "noreply@anthropic.com"
-add_coauthor "Cursor" "noreply@cursor.com"
-add_coauthor "Gemini" "noreply@google.com"
-add_coauthor "Devin" "noreply@devin.ai"
+add_coauthor "Cursor" "126759922+cursor@users.noreply.github.com"
+add_coauthor "Gemini" "224641728+gemini-cli-robot@users.noreply.github.com"
+add_coauthor "Devin" "158243242+devin-ai-integration[bot]@users.noreply.github.com"
 
 printf "\n" >> "$COMMIT_MSG_FILE"
 
